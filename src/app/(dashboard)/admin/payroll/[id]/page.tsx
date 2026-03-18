@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { PayrollRecord, PayrollPeriod, EmployeeContract } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -40,9 +40,7 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
     compensation_amount: 0,
   });
 
-  useEffect(() => { loadData(); }, [params.id]);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     const supabase = createClient();
     const { data: r } = await supabase
       .from("payroll_records")
@@ -71,7 +69,9 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
       setContract(c);
     }
     setLoading(false);
-  }
+  }, [params.id]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const grossSalary = contract?.gross_salary || record?.gross_salary || 0;
   const workingDays = period?.working_days || 1;

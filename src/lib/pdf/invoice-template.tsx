@@ -269,6 +269,7 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
               <Text style={styles.agreementLine}>Dated {data.agreementDate}</Text>
             </View>
             <View style={styles.logoCell}>
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
               <Image src={logoPath} style={styles.logo} />
             </View>
           </View>

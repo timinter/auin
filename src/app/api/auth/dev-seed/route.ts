@@ -139,7 +139,7 @@ export async function POST() {
       { name: "SAMAP Platform", status: "active" },
       { name: "Mobile Banking App", status: "active" },
       { name: "E-Commerce Redesign", status: "active" },
-    ], { onConflict: "name" }).throwOnError().catch(() => {});
+    ], { onConflict: "name" }).throwOnError().then(() => {}, () => {});
 
     // Create payroll periods
     for (const p of [
@@ -147,7 +147,7 @@ export async function POST() {
       { year: 2026, month: 2, working_days: 20, status: "locked", submission_deadline: "2026-03-10", payment_deadline: "2026-03-20" },
       { year: 2026, month: 3, working_days: 22, status: "open", submission_deadline: "2026-04-10", payment_deadline: "2026-04-20" },
     ]) {
-      await supabase.from("payroll_periods").upsert(p, { onConflict: "year,month" }).catch(() => {});
+      await supabase.from("payroll_periods").upsert(p, { onConflict: "year,month" }).then(() => {}, () => {});
     }
 
     return NextResponse.json({ created, skipped, errors, total: TEST_USERS.length });
