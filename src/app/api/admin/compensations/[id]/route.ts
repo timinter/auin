@@ -1,0 +1,116 @@
+import { requireRole } from "@/lib/auth";
+import { uuidParam } from "@/lib/validations";
+import { createAuditLog } from "@/lib/audit";
+import { createNotification } from "@/lib/notifications";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+const reviewSchema = z.object({
+  status: z.enum(["approved", "rejected"]),
+  approved_amount: z.number().nonnegative().max(99_999).optional(),
+});
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const auth = await requireRole("admin");
+    if (auth.response) return auth.response;
+    const { user, serviceClient } = auth;
+
+    if (!uuidParam.safeParse(params.id).success) {
+      return NextResponse.json({ error: "Invalid compensation ID" }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const parsed = reviewSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    }
+
+    const { data: comp } = await serviceClient
+      .from("employee_compensations")
+      .select("*, compensation_categories(name), profiles!employee_compensations_employee_id_fkey(first_name, last_name)")
+      .eq("id", params.id)
+      .single();
+    if (!comp) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const updateData: Record<string, unknown> = {
+      status: parsed.data.status,
+    };
+
+    if (parsed.data.status === "approved") {
+      updateData.approved_amount = parsed.data.approved_amount ?? comp.submitted_amount;
+      updateData.approved_at = new Date().toISOString();
+    }
+
+    const { data, error } = await serviceClient
+      .from("employee_compensations")
+      .update(updateData)
+      .eq("id", params.id)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: "Failed to update compensation" }, { status: 400 });
+
+    await createAuditLog(serviceClient, {
+      userId: user.id,
+      action: `compensation.${parsed.data.status}`,
+      entityType: "employee_compensation",
+      entityId: params.id,
+      oldValues: { status: comp.status, approved_amount: comp.approved_amount },
+      newValues: updateData,
+    });
+
+    const cat = comp.compensation_categories as unknown as { name: string } | null;
+    const catName = cat?.name || "compensation";
+    const amt = parsed.data.status === "approved"
+      ? `$${Number(parsed.data.approved_amount ?? comp.submitted_amount).toFixed(2)}`
+      : `$${Number(comp.submitted_amount).toFixed(2)}`;
+    // Recalculate total approved compensations and update payroll record
+    const { data: allComps } = await serviceClient
+      .from("employee_compensations")
+      .select("approved_amount")
+      .eq("employee_id", comp.employee_id)
+      .eq("period_id", comp.period_id)
+      .eq("status", "approved");
+
+    const totalCompensation = (allComps || []).reduce(
+      (sum, c) => sum + (c.approved_amount || 0), 0
+    );
+
+    // Update the payroll record's compensation_amount
+    const { data: payrollRecord } = await serviceClient
+      .from("payroll_records")
+      .select("id, gross_salary, days_worked, bonus, compensation_amount, period:payroll_periods(working_days)")
+      .eq("employee_id", comp.employee_id)
+      .eq("period_id", comp.period_id)
+      .single();
+
+    if (payrollRecord) {
+      const workingDays = (payrollRecord.period as unknown as { working_days: number } | null)?.working_days || 1;
+      const proratedGross = Math.round((payrollRecord.gross_salary / workingDays) * payrollRecord.days_worked * 100) / 100;
+      const totalAmount = Math.round((proratedGross + payrollRecord.bonus + totalCompensation) * 100) / 100;
+
+      await serviceClient
+        .from("payroll_records")
+        .update({ compensation_amount: totalCompensation, total_amount: totalAmount })
+        .eq("id", payrollRecord.id);
+    }
+
+    await createNotification(serviceClient, {
+      userId: comp.employee_id,
+      title: `Compensation ${parsed.data.status === "approved" ? "Approved" : "Rejected"}`,
+      message: parsed.data.status === "approved"
+        ? `Your ${catName} request (${amt}) has been approved.`
+        : `Your ${catName} request (${amt}) has been rejected.`,
+      type: parsed.data.status === "approved" ? "success" : "warning",
+      link: "/employee/compensations",
+    });
+
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}

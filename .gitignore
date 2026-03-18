@@ -34,3 +34,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# internal docs for testing purposes
+REQUIREMENTS.md
+IMPLEMENTATION_PLAN.md
+TESTING_FLOW.md
+
+# supabase scripts for testing purposes
+supabase/seed_test_users.sql
+supabase/cleanup_test_users.sql
