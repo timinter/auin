@@ -24,14 +24,19 @@ export async function POST(request: Request) {
       .single();
     if (!period) return NextResponse.json({ error: "Period not found" }, { status: 404 });
 
-    const { data: records } = await serviceClient
+    const { data: rawRecords } = await serviceClient
       .from("payroll_records")
       .select("*, employee:profiles!inner(*)")
       .eq("period_id", period_id)
-      .eq("employee.entity", entity)
-      .order("created_at");
+      .eq("employee.entity", entity);
 
-    if (!records || records.length === 0) {
+    const records = (rawRecords || []).sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const aName = (a.employee as Record<string, string>)?.last_name || "";
+      const bName = (b.employee as Record<string, string>)?.last_name || "";
+      return aName.localeCompare(bName);
+    });
+
+    if (records.length === 0) {
       return NextResponse.json({ error: "No records found" }, { status: 400 });
     }
 

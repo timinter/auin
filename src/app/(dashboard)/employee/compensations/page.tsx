@@ -30,6 +30,7 @@ export default function EmployeeCompensationsPage() {
   // Form state
   const [selectedCategory, setSelectedCategory] = useState("");
   const [amount, setAmount] = useState("");
+  const [receiptDate, setReceiptDate] = useState("");
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [receiptName, setReceiptName] = useState<string | null>(null);
 
@@ -106,6 +107,8 @@ export default function EmployeeCompensationsPage() {
         period_id: selectedPeriod,
         category_id: selectedCategory,
         submitted_amount: parseFloat(amount),
+        submitted_currency: "BYN",
+        receipt_date: receiptDate || undefined,
         receipt_url: receiptUrl,
       }),
     });
@@ -114,6 +117,7 @@ export default function EmployeeCompensationsPage() {
       toast({ title: "Compensation submitted" });
       setAmount("");
       setSelectedCategory("");
+      setReceiptDate("");
       setReceiptUrl(null);
       setReceiptName(null);
       loadCompensations();
@@ -166,7 +170,7 @@ export default function EmployeeCompensationsPage() {
       <Card>
         <CardHeader><CardTitle>Submit Compensation</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label>Category</Label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -182,7 +186,7 @@ export default function EmployeeCompensationsPage() {
               </Select>
             </div>
             <div>
-              <Label>Amount (your expense)</Label>
+              <Label>Amount (BYN)</Label>
               <Input
                 type="number"
                 min={0}
@@ -190,6 +194,14 @@ export default function EmployeeCompensationsPage() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
+              />
+            </div>
+            <div>
+              <Label>Receipt Date</Label>
+              <Input
+                type="date"
+                value={receiptDate}
+                onChange={(e) => setReceiptDate(e.target.value)}
               />
             </div>
           </div>

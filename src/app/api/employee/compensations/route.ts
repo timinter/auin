@@ -7,6 +7,8 @@ const submitCompensationSchema = z.object({
   period_id: z.string().uuid(),
   category_id: z.string().uuid(),
   submitted_amount: z.number().positive().max(99_999),
+  submitted_currency: z.string().default("BYN"),
+  receipt_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   receipt_url: z.string().url().max(1000).optional().nullable(),
 });
 
@@ -75,6 +77,8 @@ export async function POST(request: Request) {
         period_id: parsed.data.period_id,
         category_id: parsed.data.category_id,
         submitted_amount: parsed.data.submitted_amount,
+        submitted_currency: parsed.data.submitted_currency,
+        receipt_date: parsed.data.receipt_date || null,
         receipt_url: parsed.data.receipt_url || null,
       })
       .select("*, category:compensation_categories(*)")

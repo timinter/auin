@@ -168,7 +168,9 @@ export interface EmployeeCompensation {
   period_id: string;
   category_id: string;
   submitted_amount: number;
+  submitted_currency: string;
   approved_amount: number | null;
+  receipt_date: string | null;
   receipt_url: string | null;
   status: CompensationStatus;
   submitted_at: string;

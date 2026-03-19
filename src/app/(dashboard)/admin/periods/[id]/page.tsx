@@ -60,6 +60,8 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [nbrbRate, setNbrbRate] = useState<number | null>(null);
+  const [fetchingRate, setFetchingRate] = useState(false);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -72,22 +74,36 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
       .from("payroll_records")
       .select("*, employee:profiles!inner(*)")
       .eq("period_id", params.id)
-      .eq("employee.entity", entity)
-      .order("created_at");
-    setPayrollRecords(pr || []);
+      .eq("employee.entity", entity);
+    setPayrollRecords(
+      (pr || []).sort((a, b) =>
+        (a.employee?.last_name || "").localeCompare(b.employee?.last_name || "")
+      )
+    );
 
     const { data: fi } = await supabase
       .from("freelancer_invoices")
       .select("*, freelancer:profiles!inner(*)")
       .eq("period_id", params.id)
-      .eq("freelancer.entity", entity)
-      .order("created_at");
-    setFreelancerInvoices(fi || []);
+      .eq("freelancer.entity", entity);
+    setFreelancerInvoices(
+      (fi || []).sort((a, b) =>
+        (a.freelancer?.last_name || "").localeCompare(b.freelancer?.last_name || "")
+      )
+    );
 
     // Load compensations
     const compRes = await fetch(`/api/admin/compensations?period_id=${params.id}&entity=${entity}`);
     if (compRes.ok) {
       setCompensations(await compRes.json());
+    }
+
+    // Load exchange rate
+    const rateRes = await fetch(`/api/admin/exchange-rates?period_id=${params.id}`);
+    if (rateRes.ok) {
+      const rates = await rateRes.json();
+      const bynRate = rates.find((r: { from_currency: string }) => r.from_currency === "BYN");
+      setNbrbRate(bynRate?.rate ?? null);
     }
 
     setLoading(false);
@@ -231,6 +247,29 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
       URL.revokeObjectURL(url);
     } catch {
       toast({ title: "Export failed", variant: "destructive" });
+    }
+  }
+
+  async function handleFetchNbrbRate() {
+    setFetchingRate(true);
+    try {
+      const res = await fetch("/api/admin/exchange-rates/fetch-nbrb", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period_id: params.id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNbrbRate(data.rate);
+        toast({ title: `NBRB rate fetched: 1 USD = ${data.rate} BYN` });
+      } else {
+        const err = await res.json();
+        toast({ title: "Error", description: err.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to fetch NBRB rate", variant: "destructive" });
+    } finally {
+      setFetchingRate(false);
     }
   }
 
@@ -412,6 +451,14 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
             {period.working_days} working days
             {period.submission_deadline && <> &middot; Submit by {period.submission_deadline}</>}
             {period.payment_deadline && <> &middot; Pay by {period.payment_deadline}</>}
+
+            <Badge
+              variant={nbrbRate ? "secondary" : "warning"}
+              className="ml-2 cursor-pointer"
+              onClick={handleFetchNbrbRate}
+            >
+              {fetchingRate ? "Fetching..." : nbrbRate ? `1 USD = ${nbrbRate} BYN` : "Fetch NBRB Rate"}
+            </Badge>
           </p>
         </div>
         <div className="flex gap-2">

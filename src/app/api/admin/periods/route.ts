@@ -4,6 +4,25 @@ import { createAuditLog } from "@/lib/audit";
 import { formatZodErrors } from "@/lib/utils";
 import { NextResponse } from "next/server";
 
+export async function GET() {
+  try {
+    const auth = await requireRole("admin");
+    if (auth.response) return auth.response;
+    const { serviceClient } = auth;
+
+    const { data, error } = await serviceClient
+      .from("payroll_periods")
+      .select("*")
+      .order("year", { ascending: false })
+      .order("month", { ascending: false });
+
+    if (error) return NextResponse.json({ error: "Failed to load periods" }, { status: 400 });
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   const auth = await requireRole("admin");
   if (auth.response) return auth.response;

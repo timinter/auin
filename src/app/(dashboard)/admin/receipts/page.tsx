@@ -128,8 +128,9 @@ export default function AdminReceiptsPage() {
                   <TableHead>Employee</TableHead>
                   <TableHead>Period</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Submitted</TableHead>
-                  <TableHead className="text-right">Approved</TableHead>
+                  <TableHead>Receipt Date</TableHead>
+                  <TableHead className="text-right">Submitted (BYN)</TableHead>
+                  <TableHead className="text-right">Approved (USD)</TableHead>
                   <TableHead>Receipt</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead />
@@ -138,7 +139,7 @@ export default function AdminReceiptsPage() {
               <TableBody>
                 {compensations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       No receipts found.
                     </TableCell>
                   </TableRow>
@@ -151,7 +152,8 @@ export default function AdminReceiptsPage() {
                       {comp.period ? formatPeriod(comp.period.year, comp.period.month) : "—"}
                     </TableCell>
                     <TableCell>{comp.category?.label || "—"}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(comp.submitted_amount)}</TableCell>
+                    <TableCell>{comp.receipt_date || "—"}</TableCell>
+                    <TableCell className="text-right">{comp.submitted_amount} BYN</TableCell>
                     <TableCell className="text-right">
                       {comp.status === "pending" ? (
                         <Input
@@ -198,9 +200,9 @@ export default function AdminReceiptsPage() {
                 ))}
                 {compensations.length > 0 && (
                   <TableRow className="bg-muted/50 font-semibold">
-                    <TableCell colSpan={3}>Totals ({compensations.length})</TableCell>
+                    <TableCell colSpan={4}>Totals ({compensations.length})</TableCell>
                     <TableCell className="text-right">
-                      {formatCurrency(compensations.reduce((s, c) => s + c.submitted_amount, 0))}
+                      {compensations.reduce((s, c) => s + c.submitted_amount, 0).toFixed(2)} BYN
                     </TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(compensations.filter((c) => c.approved_amount != null).reduce((s, c) => s + (c.approved_amount || 0), 0))}
