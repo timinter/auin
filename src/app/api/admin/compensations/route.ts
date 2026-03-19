@@ -29,8 +29,7 @@ export async function GET(request: Request) {
 
     let query = serviceClient
       .from("employee_compensations")
-      .select("*, category:compensation_categories(*), employee:profiles!inner(*), period:payroll_periods(*)")
-      .order("created_at", { ascending: false });
+      .select("*, category:compensation_categories(*), employee:profiles!inner(*), period:payroll_periods(*)");
 
     if (periodId) query = query.eq("period_id", periodId);
     if (entity) query = query.eq("employee.entity", entity);
@@ -38,7 +37,14 @@ export async function GET(request: Request) {
 
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: "Failed to load compensations" }, { status: 400 });
-    return NextResponse.json(data);
+
+    // Sort by employee last name
+    const sorted = (data || []).sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const aName = (a.employee as Record<string, string>)?.last_name || "";
+      const bName = (b.employee as Record<string, string>)?.last_name || "";
+      return aName.localeCompare(bName);
+    });
+    return NextResponse.json(sorted);
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

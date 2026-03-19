@@ -18,15 +18,13 @@ export async function GET(request: Request) {
     const { data: payroll } = await serviceClient
       .from("payroll_records")
       .select("*, employee:profiles(*)")
-      .eq("period_id", periodId)
-      .order("created_at");
+      .eq("period_id", periodId);
 
     // Fetch freelancer invoices across all entities
     const { data: invoices } = await serviceClient
       .from("freelancer_invoices")
       .select("*, freelancer:profiles(*)")
-      .eq("period_id", periodId)
-      .order("created_at");
+      .eq("period_id", periodId);
 
     // Fetch compensations across all entities
     const { data: compensations } = await serviceClient

@@ -71,10 +71,9 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 
     const { data: r } = await supabase
       .from("freelancer_project_rates")
-      .select("*, freelancer:profiles(id, first_name, last_name, email)")
-      .eq("project_id", params.id)
-      .order("effective_from", { ascending: false });
-    setRates(r || []);
+      .select("*, freelancer:profiles!freelancer_project_rates_freelancer_id_fkey(id, first_name, last_name, email)")
+      .eq("project_id", params.id);
+    setRates((r || []).sort((a, b) => (a.freelancer?.last_name || "").localeCompare(b.freelancer?.last_name || "")));
 
     const { data: l } = await supabase
       .from("freelancer_invoice_lines")
@@ -95,7 +94,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
       .select("id, first_name, last_name, email")
       .eq("role", "freelancer")
       .eq("status", "active")
-      .order("first_name");
+      .order("last_name");
     setFreelancers(data || []);
   }
 

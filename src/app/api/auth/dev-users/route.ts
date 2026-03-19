@@ -17,7 +17,7 @@ export async function GET() {
       .from("profiles")
       .select("id, email, first_name, last_name, role, department, payment_channel")
       .order("role")
-      .order("first_name");
+      .order("last_name");
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
