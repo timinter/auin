@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { uuidParam } from "@/lib/validations";
 import { createAuditLog } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
+import { calculateCompensation } from "@/lib/compensation/calculate";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -31,7 +32,7 @@ export async function PATCH(
 
     const { data: comp } = await serviceClient
       .from("employee_compensations")
-      .select("*, compensation_categories(name), profiles!employee_compensations_employee_id_fkey(first_name, last_name)")
+      .select("*, compensation_categories(*), profiles!employee_compensations_employee_id_fkey(first_name, last_name, tax_rate)")
       .eq("id", params.id)
       .single();
     if (!comp) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -41,7 +42,60 @@ export async function PATCH(
     };
 
     if (parsed.data.status === "approved") {
-      updateData.approved_amount = parsed.data.approved_amount ?? comp.submitted_amount;
+      let approvedAmount = parsed.data.approved_amount;
+
+      // If no explicit amount, auto-calculate
+      if (approvedAmount == null) {
+        try {
+          const category = comp.compensation_categories as unknown as {
+            name: string; limit_percentage: number | null;
+            max_gross: number | null; annual_max_gross: number | null; is_prorated: boolean;
+          };
+          const employee = comp.profiles as unknown as { tax_rate: number } | null;
+          const taxRate = employee?.tax_rate ?? 0.13;
+
+          let exchangeRate: number | null = null;
+          if (comp.submitted_currency !== "USD") {
+            const { data: rate } = await serviceClient
+              .from("exchange_rates").select("rate")
+              .eq("period_id", comp.period_id).eq("from_currency", "BYN").eq("to_currency", "USD")
+              .single();
+            exchangeRate = rate?.rate ?? null;
+          }
+
+          let yearToDateApproved = 0;
+          if (category.annual_max_gross != null) {
+            const { data: period } = await serviceClient
+              .from("payroll_periods").select("year").eq("id", comp.period_id).single();
+            if (period) {
+              const { data: yearPeriods } = await serviceClient
+                .from("payroll_periods").select("id").eq("year", period.year);
+              const periodIds = (yearPeriods || []).map((p) => p.id);
+              if (periodIds.length > 0) {
+                const { data: yearComps } = await serviceClient
+                  .from("employee_compensations").select("approved_amount")
+                  .eq("employee_id", comp.employee_id).eq("category_id", comp.category_id)
+                  .eq("status", "approved").in("period_id", periodIds).neq("id", comp.id);
+                yearToDateApproved = (yearComps || []).reduce((s, c) => s + (c.approved_amount || 0), 0);
+              }
+            }
+          }
+
+          const result = calculateCompensation({
+            submittedAmount: comp.submitted_amount,
+            submittedCurrency: comp.submitted_currency,
+            exchangeRate,
+            category,
+            taxRate,
+            yearToDateApproved,
+          });
+          approvedAmount = result.approvedGross;
+        } catch {
+          approvedAmount = comp.submitted_amount;
+        }
+      }
+
+      updateData.approved_amount = approvedAmount;
       updateData.approved_at = new Date().toISOString();
     }
 

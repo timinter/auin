@@ -32,6 +32,7 @@ const adminNav: NavItem[] = [
   { title: "Projects", href: "/admin/projects", icon: FolderOpen },
   { title: "Freelancer Invoices", href: "/admin/freelancer-invoices", icon: Receipt },
   { title: "Receipts", href: "/admin/receipts", icon: Heart },
+  { title: "Holidays", href: "/admin/holidays", icon: Clock },
   { title: "Reports", href: "/admin/reports", icon: BarChart3 },
   { title: "Audit Log", href: "/admin/audit-log", icon: ScrollText },
 ];

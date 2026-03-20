@@ -85,7 +85,7 @@ export async function GET(
 
     const invoiceData: InvoiceData = {
       invoiceNumber,
-      agreementDate: formatDate(now),
+      agreementDate: employee.contract_date ? formatDate(new Date(employee.contract_date)) : formatDate(now),
       invoiceDate: shortDate(now),
       dueDate: shortDate(dueDate),
       totalAmount: record.total_amount,

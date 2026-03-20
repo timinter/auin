@@ -61,6 +61,8 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
     personal_email: "",
     service_description: "",
     invoice_number_prefix: "",
+    invoice_number_seq: 1,
+    contract_date: "",
   });
 
   const loadData = useCallback(async () => {
@@ -90,6 +92,8 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
         personal_email: p.personal_email || "",
         service_description: p.service_description || "",
         invoice_number_prefix: p.invoice_number_prefix || "",
+        invoice_number_seq: p.invoice_number_seq || 1,
+        contract_date: p.contract_date || "",
       });
 
       if (p.role === "employee") {
@@ -302,7 +306,9 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
               <Select value={form.entity} onValueChange={(v) => setForm({ ...form, entity: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {ENTITIES.map((e) => (
+                  {ENTITIES
+                    .filter((e) => profile?.role !== "freelancer" || e !== "BY")
+                    .map((e) => (
                     <SelectItem key={e} value={e}>{ENTITY_LABELS[e]}</SelectItem>
                   ))}
                 </SelectContent>
@@ -339,11 +345,13 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
             <FormField label="Invoice Number Prefix" error={profileErrors.invoice_number_prefix} onClearError={clearFieldError(setProfileErrors, "invoice_number_prefix")}>
               <Input value={form.invoice_number_prefix} onChange={(e) => setForm({ ...form, invoice_number_prefix: e.target.value })} placeholder="e.g. INV, IX-US" />
             </FormField>
-            <div>
-              <Label>Current Invoice Seq</Label>
-              <p className="text-sm text-muted-foreground mt-2">{profile.invoice_number_seq}</p>
-            </div>
+            <FormField label="Invoice Starting Number">
+              <Input type="number" min={1} value={form.invoice_number_seq} onChange={(e) => setForm({ ...form, invoice_number_seq: parseInt(e.target.value) || 1 })} />
+            </FormField>
           </div>
+          <FormField label="Contract Date (Dated)">
+            <Input type="date" value={form.contract_date} onChange={(e) => setForm({ ...form, contract_date: e.target.value })} />
+          </FormField>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save Changes"}
           </Button>

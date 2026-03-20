@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { formatZodErrors } from "@/lib/utils";
+import { isSubmissionPastDeadline } from "@/lib/compensation/deadline";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Period is not open for submissions" }, { status: 400 });
     }
 
-    // Verify category exists and is active
+    // Verify category exists, is active, and not admin-only
     const { data: category } = await serviceClient
       .from("compensation_categories")
       .select("*")
@@ -68,6 +69,19 @@ export async function POST(request: Request) {
       .single();
     if (!category || !category.is_active) {
       return NextResponse.json({ error: "Invalid compensation category" }, { status: 400 });
+    }
+    if (category.admin_only) {
+      return NextResponse.json({ error: "This category can only be added by an admin" }, { status: 403 });
+    }
+
+    // Check submission deadline (5th of the month following the period)
+    const { data: periodFull } = await serviceClient
+      .from("payroll_periods")
+      .select("year, month, submission_deadline")
+      .eq("id", parsed.data.period_id)
+      .single();
+    if (periodFull && isSubmissionPastDeadline(periodFull)) {
+      return NextResponse.json({ error: "Submission deadline has passed for this period" }, { status: 400 });
     }
 
     const { data, error } = await serviceClient

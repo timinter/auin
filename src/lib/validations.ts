@@ -163,6 +163,8 @@ export const updateProfileSchema = z.object({
     .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), { message: "Invalid email" }),
   service_description: safeText(1000).transform((v) => v || null).optional(),
   invoice_number_prefix: safeText(20).transform((v) => v || null).optional(),
+  invoice_number_seq: z.number().int().min(1).max(99_999).optional(),
+  contract_date: z.union([dateString, z.literal("")]).transform((v) => v || null).optional(),
 });
 
 export const bankDetailsSchema = z.object({
