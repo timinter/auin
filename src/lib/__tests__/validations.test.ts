@@ -313,6 +313,50 @@ describe("updateProfileSchema", () => {
       expect(result.data.first_name).toBe("John");
     }
   });
+
+  it("accepts freelancer_type individual", () => {
+    const result = updateProfileSchema.safeParse({ freelancer_type: "individual" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts freelancer_type legal_entity", () => {
+    const result = updateProfileSchema.safeParse({ freelancer_type: "legal_entity" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid freelancer_type", () => {
+    const result = updateProfileSchema.safeParse({ freelancer_type: "corporation" });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts legal entity fields", () => {
+    const result = updateProfileSchema.safeParse({
+      freelancer_type: "legal_entity",
+      company_name: "My Company LLC",
+      registration_number: "123456789",
+      company_address: "123 Business St",
+      signatory_name: "John Doe",
+      signatory_position: "Director",
+      is_vat_payer: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("sanitizes company_name", () => {
+    const result = updateProfileSchema.safeParse({ company_name: 'Test<img onerror="alert(1)">Co' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.company_name).not.toContain("onerror");
+    }
+  });
+
+  it("nullifies empty company_name", () => {
+    const result = updateProfileSchema.safeParse({ company_name: "" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.company_name).toBeNull();
+    }
+  });
 });
 
 describe("rejectPayrollSchema", () => {
