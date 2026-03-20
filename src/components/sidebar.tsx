@@ -18,6 +18,7 @@ import {
   Heart,
   BarChart3,
   CalendarOff,
+  ClipboardList,
 } from "lucide-react";
 
 interface NavItem {
@@ -33,6 +34,7 @@ const adminNav: NavItem[] = [
   { title: "Projects", href: "/admin/projects", icon: FolderOpen },
   { title: "Freelancer Invoices", href: "/admin/freelancer-invoices", icon: Receipt },
   { title: "Receipts", href: "/admin/receipts", icon: Heart },
+  { title: "Comp. Report", href: "/admin/compensation-report", icon: ClipboardList },
   { title: "Leaves", href: "/admin/leaves", icon: CalendarOff },
   { title: "Holidays", href: "/admin/holidays", icon: Clock },
   { title: "Reports", href: "/admin/reports", icon: BarChart3 },
