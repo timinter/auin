@@ -49,15 +49,16 @@ export default function EmployeePayrollPage() {
             <TableHead>Period</TableHead>
             <TableHead>Gross</TableHead>
             <TableHead>Prorated</TableHead>
+            <TableHead>Adjustment</TableHead>
             <TableHead>Total</TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableRow><TableCell colSpan={5}><div className="flex justify-center py-4"><Spinner className="h-6 w-6 text-foreground" /></div></TableCell></TableRow>
+            <TableRow><TableCell colSpan={6}><div className="flex justify-center py-4"><Spinner className="h-6 w-6 text-foreground" /></div></TableCell></TableRow>
           ) : records.length === 0 ? (
-            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No payroll records yet</TableCell></TableRow>
+            <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No payroll records yet</TableCell></TableRow>
           ) : records.map((r) => (
             <TableRow key={r.id}>
               <TableCell>
@@ -67,6 +68,14 @@ export default function EmployeePayrollPage() {
               </TableCell>
               <TableCell>{formatCurrency(r.gross_salary)}</TableCell>
               <TableCell>{formatCurrency(r.prorated_gross)}</TableCell>
+              <TableCell>
+                {r.adjustment_amount ? (
+                  <span className={r.adjustment_amount > 0 ? "text-emerald-600" : "text-red-600"} title={r.adjustment_reason || undefined}>
+                    {r.adjustment_amount > 0 ? "+" : ""}{formatCurrency(r.adjustment_amount)}
+                    {r.adjustment_reason && <span className="block text-xs text-muted-foreground">{r.adjustment_reason}</span>}
+                  </span>
+                ) : "—"}
+              </TableCell>
               <TableCell className="font-semibold">{formatCurrency(r.total_amount)}</TableCell>
               <TableCell><Badge variant={statusVariant(r.status)}>{r.status.replace("_", " ")}</Badge></TableCell>
             </TableRow>

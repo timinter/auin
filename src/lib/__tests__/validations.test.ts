@@ -109,6 +109,34 @@ describe("updatePayrollSchema", () => {
       expect(result.data.bonus_note).not.toContain("<script>");
     }
   });
+
+  it("accepts positive adjustment_amount", () => {
+    const result = updatePayrollSchema.safeParse({ adjustment_amount: 200 });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts negative adjustment_amount (deduction)", () => {
+    const result = updatePayrollSchema.safeParse({ adjustment_amount: -500 });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects adjustment_amount exceeding max", () => {
+    const result = updatePayrollSchema.safeParse({ adjustment_amount: 100_000 });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts adjustment_reason", () => {
+    const result = updatePayrollSchema.safeParse({ adjustment_amount: -100, adjustment_reason: "Late penalty" });
+    expect(result.success).toBe(true);
+  });
+
+  it("sanitizes adjustment_reason", () => {
+    const result = updatePayrollSchema.safeParse({ adjustment_reason: '<img onerror="alert(1)">' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.adjustment_reason).not.toContain("onerror");
+    }
+  });
 });
 
 describe("createContractSchema", () => {

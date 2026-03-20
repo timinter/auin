@@ -89,11 +89,14 @@ export interface PayrollRecord {
   bonus: number;
   bonus_note: string | null;
   compensation_amount: number;
+  adjustment_amount: number;
+  adjustment_reason: string | null;
   total_amount: number;
   status: PayrollStatus;
   rejection_reason: string | null;
   invoice_file_url: string | null;
   invoice_drive_file_id: string | null;
+  downloaded_at: string | null;
   // Joined fields
   employee?: Profile;
   period?: PayrollPeriod;
@@ -129,6 +132,7 @@ export interface FreelancerInvoice {
   invoice_drive_file_id: string | null;
   time_report_url: string | null;
   deadline_override: boolean;
+  downloaded_at: string | null;
   // Joined
   freelancer?: Profile;
   period?: PayrollPeriod;

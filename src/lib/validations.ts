@@ -75,6 +75,8 @@ export const updatePayrollSchema = z.object({
   bonus: money().optional(),
   bonus_note: safeText(500).optional(),
   compensation_amount: money().optional(),
+  adjustment_amount: z.number().min(-99_999).max(99_999).optional(),
+  adjustment_reason: safeText(500).optional(),
 });
 
 export const rejectPayrollSchema = z.object({

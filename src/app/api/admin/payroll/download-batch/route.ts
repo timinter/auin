@@ -122,6 +122,13 @@ export async function POST(request: Request) {
       }).catch((err) => console.error("Drive upload error:", err));
     }
 
+    // Mark records as downloaded
+    await serviceClient
+      .from("payroll_records")
+      .update({ downloaded_at: new Date().toISOString() })
+      .in("id", records.map((r) => r.id))
+      .is("downloaded_at", null);
+
     const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
     const period = records[0].period;
     const zipFilename = `payroll_${MONTHS[period.month - 1]}_${period.year}.zip`;

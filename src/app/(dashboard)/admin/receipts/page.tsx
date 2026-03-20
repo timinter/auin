@@ -189,7 +189,7 @@ export default function AdminReceiptsPage() {
                   <TableHead>Period</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Receipt Date</TableHead>
-                  <TableHead className="text-right">Submitted (BYN)</TableHead>
+                  <TableHead className="text-right">Submitted</TableHead>
                   <TableHead className="text-right">Approved (USD)</TableHead>
                   <TableHead>Receipt</TableHead>
                   <TableHead>Status</TableHead>
@@ -213,7 +213,7 @@ export default function AdminReceiptsPage() {
                     </TableCell>
                     <TableCell>{comp.category?.label || "—"}</TableCell>
                     <TableCell>{comp.receipt_date || "—"}</TableCell>
-                    <TableCell className="text-right">{comp.submitted_amount} BYN</TableCell>
+                    <TableCell className="text-right">{comp.submitted_amount} {comp.submitted_currency || "BYN"}</TableCell>
                     <TableCell className="text-right">
                       {comp.status === "pending" ? (
                         <div className="flex items-center gap-1 justify-end">
@@ -302,7 +302,7 @@ export default function AdminReceiptsPage() {
                   <TableRow className="bg-muted/50 font-semibold">
                     <TableCell colSpan={4}>Totals ({compensations.length})</TableCell>
                     <TableCell className="text-right">
-                      {compensations.reduce((s, c) => s + c.submitted_amount, 0).toFixed(2)} BYN
+                      {compensations.reduce((s, c) => s + c.submitted_amount, 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(compensations.filter((c) => c.approved_amount != null).reduce((s, c) => s + (c.approved_amount || 0), 0))}

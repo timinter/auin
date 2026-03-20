@@ -6,6 +6,7 @@ const base: PayrollFields & { period: { working_days: number } } = {
   gross_salary: 5000,
   bonus: 0,
   compensation_amount: 0,
+  adjustment_amount: 0,
   period: { working_days: 22 },
 };
 
@@ -66,5 +67,25 @@ describe("calculatePayrollTotal", () => {
     const record = { ...base, gross_salary: 150000, period: { working_days: 20 } };
     const { proratedGross } = calculatePayrollTotal(record, { days_worked: 15 });
     expect(proratedGross).toBe(112500);
+  });
+
+  it("adds positive adjustment to total", () => {
+    const { totalAmount } = calculatePayrollTotal(base, { adjustment_amount: 200 });
+    expect(totalAmount).toBe(5200);
+  });
+
+  it("subtracts negative adjustment from total", () => {
+    const { totalAmount } = calculatePayrollTotal(base, { adjustment_amount: -300 });
+    expect(totalAmount).toBe(4700);
+  });
+
+  it("combines all fields including adjustment", () => {
+    const { totalAmount } = calculatePayrollTotal(base, {
+      bonus: 100,
+      compensation_amount: 50,
+      adjustment_amount: -75,
+    });
+    // 5000 + 100 + 50 - 75 = 5075
+    expect(totalAmount).toBe(5075);
   });
 });

@@ -7,6 +7,7 @@ export interface PayrollFields {
   gross_salary: number;
   bonus: number;
   compensation_amount: number;
+  adjustment_amount: number;
 }
 
 /**
@@ -24,7 +25,8 @@ export function calculatePayrollTotal(
   const totalAmount = Math.round((
     proratedGross +
     (updates.bonus ?? existing.bonus) +
-    (updates.compensation_amount ?? existing.compensation_amount)
+    (updates.compensation_amount ?? existing.compensation_amount) +
+    (updates.adjustment_amount ?? existing.adjustment_amount ?? 0)
   ) * 100) / 100;
 
   return { proratedGross, totalAmount };

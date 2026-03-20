@@ -10,7 +10,7 @@ const submitCompensationSchema = z.object({
   submitted_amount: z.number().positive().max(99_999),
   submitted_currency: z.string().default("BYN"),
   receipt_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  receipt_url: z.string().url().max(1000).optional().nullable(),
+  receipt_url: z.string().max(1000).optional().nullable(),
 });
 
 export async function GET(request: Request) {
