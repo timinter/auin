@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency, formatPeriod, getApiError } from "@/lib/utils";
-import { PageSpinner } from "@/components/spinner";
+import { PageSpinner, Spinner } from "@/components/spinner";
 import { Calculator } from "lucide-react";
 
 const statusVariant = (s: string) => {
@@ -34,6 +35,10 @@ export default function AdminReceiptsPage() {
   const [periodFilter, setPeriodFilter] = useState<string>("all");
   const [breakdowns, setBreakdowns] = useState<Record<string, CompensationBreakdown>>({});
   const [calcLoading, setCalcLoading] = useState<Record<string, boolean>>({});
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -97,6 +102,36 @@ export default function AdminReceiptsPage() {
       toast({ title: "Error", description: "Failed to calculate", variant: "destructive" });
     } finally {
       setCalcLoading((prev) => ({ ...prev, [compId]: false }));
+    }
+  }
+
+  async function handlePreview(receiptPath: string) {
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewUrl(null);
+    setPreviewPath(receiptPath);
+
+    // Legacy records may have a full signed URL stored
+    if (receiptPath.startsWith("http")) {
+      setPreviewUrl(receiptPath);
+      setPreviewLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/receipt-url?path=${encodeURIComponent(receiptPath)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewUrl(data.url);
+      } else {
+        toast({ title: "Error", description: "Failed to load receipt", variant: "destructive" });
+        setPreviewOpen(false);
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to load receipt", variant: "destructive" });
+      setPreviewOpen(false);
+    } finally {
+      setPreviewLoading(false);
     }
   }
 
@@ -232,9 +267,12 @@ export default function AdminReceiptsPage() {
                     </TableCell>
                     <TableCell>
                       {comp.receipt_url ? (
-                        <a href={comp.receipt_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                        <button
+                          onClick={() => handlePreview(comp.receipt_url!)}
+                          className="text-sm text-primary hover:underline"
+                        >
                           View
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
@@ -277,6 +315,26 @@ export default function AdminReceiptsPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Receipt Preview</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center min-h-[300px]">
+            {previewLoading ? (
+              <Spinner className="h-8 w-8 text-foreground" />
+            ) : previewUrl ? (
+              previewPath?.endsWith(".pdf") ? (
+                <iframe src={previewUrl} className="w-full h-[75vh] rounded" />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewUrl} alt="Receipt" className="max-w-full max-h-[75vh] object-contain rounded" />
+              )
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

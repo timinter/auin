@@ -2,59 +2,8 @@ import { requireRole } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 import { generatePayrollSchema } from "@/lib/validations";
 import { formatZodErrors } from "@/lib/utils";
+import { calculateEffectiveGross, type ContractRow } from "@/lib/payroll-calc";
 import { NextResponse } from "next/server";
-
-interface ContractRow {
-  id: string;
-  gross_salary: number;
-  effective_from: string;
-  effective_to: string | null;
-}
-
-/**
- * Calculate the effective gross salary for a period, handling mid-month
- * salary changes by prorating across overlapping contract segments.
- */
-function calculateEffectiveGross(
-  contracts: ContractRow[],
-  periodStart: string,
-  periodEnd: string
-): { grossSalary: number; contractId: string | null } {
-  if (contracts.length === 0) {
-    return { grossSalary: 0, contractId: null };
-  }
-
-  // Single contract — simple case
-  if (contracts.length === 1) {
-    return { grossSalary: contracts[0].gross_salary, contractId: contracts[0].id };
-  }
-
-  // Multiple contracts overlap with the period — weighted proration by calendar days
-  const pStart = new Date(periodStart);
-  const pEnd = new Date(periodEnd);
-  const totalCalendarDays = Math.round((pEnd.getTime() - pStart.getTime()) / (86400000)) + 1;
-
-  let weightedTotal = 0;
-
-  for (const contract of contracts) {
-    const cStart = new Date(contract.effective_from);
-    const cEnd = contract.effective_to ? new Date(contract.effective_to) : pEnd;
-
-    const overlapStart = cStart > pStart ? cStart : pStart;
-    const overlapEnd = cEnd < pEnd ? cEnd : pEnd;
-    const overlapDays = Math.round((overlapEnd.getTime() - overlapStart.getTime()) / 86400000) + 1;
-
-    if (overlapDays > 0) {
-      weightedTotal += contract.gross_salary * (overlapDays / totalCalendarDays);
-    }
-  }
-
-  // Most recent contract is the "primary" for reference
-  return {
-    grossSalary: Math.round(weightedTotal * 100) / 100,
-    contractId: contracts[0].id,
-  };
-}
 
 export async function POST(request: Request) {
   try {
@@ -93,8 +42,8 @@ export async function POST(request: Request) {
 
     const employeeIds = employees.map((e) => e.id);
 
-    // Batch: fetch existing records and all contracts in 2 queries instead of 2N
-    const [existingResult, contractsResult] = await Promise.all([
+    // Batch: fetch existing records, contracts, and holidays in parallel
+    const [existingResult, contractsResult, holidaysResult] = await Promise.all([
       serviceClient
         .from("payroll_records")
         .select("employee_id")
@@ -108,7 +57,16 @@ export async function POST(request: Request) {
         .or(`effective_to.is.null,effective_to.gte.${periodStart}`)
         .is("terminated_at", null)
         .order("effective_from", { ascending: false }),
+      serviceClient
+        .from("corporate_holidays")
+        .select("date")
+        .gte("date", periodStart)
+        .lte("date", periodEnd),
     ]);
+
+    const holidaySet = new Set(
+      (holidaysResult.data || []).map((h: { date: string }) => h.date)
+    );
 
     const existingEmployeeIds = new Set(
       (existingResult.data || []).map((r) => r.employee_id)
@@ -131,7 +89,9 @@ export async function POST(request: Request) {
       const { grossSalary, contractId } = calculateEffectiveGross(
         empContracts,
         periodStart,
-        periodEnd
+        periodEnd,
+        period.working_days,
+        holidaySet
       );
 
       if (grossSalary === 0) {
