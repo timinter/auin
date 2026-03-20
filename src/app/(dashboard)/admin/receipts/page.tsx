@@ -3,15 +3,18 @@
 import { useEffect, useState, useCallback } from "react";
 import { useEntity } from "@/lib/hooks/use-entity";
 import type { EmployeeCompensation, PayrollPeriod } from "@/types";
+import type { CompensationBreakdown } from "@/lib/compensation/calculate";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency, formatPeriod, getApiError } from "@/lib/utils";
 import { PageSpinner } from "@/components/spinner";
+import { Calculator } from "lucide-react";
 
 const statusVariant = (s: string) => {
   switch (s) {
@@ -29,6 +32,8 @@ export default function AdminReceiptsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [periodFilter, setPeriodFilter] = useState<string>("all");
+  const [breakdowns, setBreakdowns] = useState<Record<string, CompensationBreakdown>>({});
+  const [calcLoading, setCalcLoading] = useState<Record<string, boolean>>({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -72,6 +77,26 @@ export default function AdminReceiptsPage() {
       loadData();
     } else {
       toast({ title: "Error", description: await getApiError(res), variant: "destructive" });
+    }
+  }
+
+  async function handleCalculate(compId: string) {
+    setCalcLoading((prev) => ({ ...prev, [compId]: true }));
+    try {
+      const res = await fetch(`/api/admin/compensations/${compId}/calculate`);
+      const data = await res.json();
+      if (res.ok && data.breakdown) {
+        setBreakdowns((prev) => ({ ...prev, [compId]: data.breakdown }));
+        // Auto-fill the approved amount input
+        const input = document.getElementById(`comp-amount-${compId}`) as HTMLInputElement;
+        if (input) input.value = data.breakdown.approvedGross.toFixed(2);
+      } else {
+        toast({ title: "Calculation error", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to calculate", variant: "destructive" });
+    } finally {
+      setCalcLoading((prev) => ({ ...prev, [compId]: false }));
     }
   }
 
@@ -156,14 +181,51 @@ export default function AdminReceiptsPage() {
                     <TableCell className="text-right">{comp.submitted_amount} BYN</TableCell>
                     <TableCell className="text-right">
                       {comp.status === "pending" ? (
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          defaultValue={comp.submitted_amount}
-                          className="w-24 ml-auto text-right"
-                          id={`comp-amount-${comp.id}`}
-                        />
+                        <div className="flex items-center gap-1 justify-end">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  disabled={calcLoading[comp.id]}
+                                  onClick={() => handleCalculate(comp.id)}
+                                >
+                                  <Calculator className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="text-xs max-w-64">
+                                {breakdowns[comp.id] ? (
+                                  <div className="space-y-1">
+                                    <div>Receipt: {comp.submitted_amount} {comp.submitted_currency}</div>
+                                    {breakdowns[comp.id].afterPercentage !== comp.submitted_amount && (
+                                      <div>After coverage: {breakdowns[comp.id].afterPercentage.toFixed(2)} {comp.submitted_currency}</div>
+                                    )}
+                                    {comp.submitted_currency !== "USD" && (
+                                      <div>In USD: ${breakdowns[comp.id].amountUsd.toFixed(2)}</div>
+                                    )}
+                                    <div>Gross: ${breakdowns[comp.id].grossAmount.toFixed(2)}</div>
+                                    {breakdowns[comp.id].capApplied && (
+                                      <div className="text-yellow-300">{breakdowns[comp.id].capApplied}</div>
+                                    )}
+                                    <div className="font-semibold">Approved: ${breakdowns[comp.id].approvedGross.toFixed(2)}</div>
+                                  </div>
+                                ) : (
+                                  "Click to auto-calculate"
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            defaultValue={comp.submitted_amount}
+                            className="w-24 text-right"
+                            id={`comp-amount-${comp.id}`}
+                          />
+                        </div>
                       ) : (
                         comp.approved_amount != null ? formatCurrency(comp.approved_amount) : "—"
                       )}

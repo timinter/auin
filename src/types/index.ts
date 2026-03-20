@@ -26,6 +26,8 @@ export interface Profile {
   service_description: string | null;
   invoice_number_prefix: string | null;
   invoice_number_seq: number;
+  contract_date: string | null;
+  tax_rate: number;
   created_at: string;
   updated_at: string;
 }
@@ -158,6 +160,7 @@ export interface CompensationCategory {
   max_gross: number | null;
   annual_max_gross: number | null;
   is_prorated: boolean;
+  admin_only: boolean;
   is_active: boolean;
   sort_order: number;
 }
@@ -189,6 +192,13 @@ export interface ExchangeRate {
   to_currency: string;
   rate: number;
   rate_date: string;
+}
+
+export interface CorporateHoliday {
+  id: string;
+  date: string;
+  name: string;
+  created_at: string;
 }
 
 export interface AuditLogEntry {

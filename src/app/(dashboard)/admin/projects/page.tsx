@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useToast } from "@/components/ui/use-toast";
 import { getApiError } from "@/lib/utils";
 import { Spinner } from "@/components/spinner";
-import { Plus, Pencil, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { Plus, Pencil, Archive, ArchiveRestore, Trash2, Search } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 
@@ -22,6 +22,7 @@ export default function ProjectsPage() {
   const [newName, setNewName] = useState("");
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editName, setEditName] = useState("");
+  const [search, setSearch] = useState("");
   const { toast } = useToast();
 
   const loadProjects = useCallback(async () => {
@@ -104,6 +105,16 @@ export default function ProjectsPage() {
         </Button>
       </div>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search projects..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -137,7 +148,7 @@ export default function ProjectsPage() {
         <TableBody>
           {loading ? (
             <TableRow><TableCell colSpan={3}><div className="flex justify-center py-4"><Spinner className="h-6 w-6 text-foreground" /></div></TableCell></TableRow>
-          ) : projects.map((p) => (
+          ) : projects.filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase())).map((p) => (
             <TableRow key={p.id}>
               <TableCell>
                 <Link href={`/admin/projects/${p.id}`} className="font-medium hover:underline">

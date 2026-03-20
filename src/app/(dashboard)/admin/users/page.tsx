@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useEntity, ENTITY_LABELS } from "@/lib/hooks/use-entity";
 import type { Profile } from "@/types";
+import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { getApiError } from "@/lib/utils";
 import { Spinner } from "@/components/spinner";
@@ -27,7 +29,7 @@ const PAGE_SIZE = 50;
 
 export default function UsersPage() {
   const { entity } = useEntity();
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profiles, setProfiles] = useState<(Profile & { gross_salary?: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -36,6 +38,7 @@ export default function UsersPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<string>("employee");
   const [inviting, setInviting] = useState(false);
+  const [roleTab, setRoleTab] = useState<"employee" | "freelancer">("employee");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const { toast } = useToast();
@@ -53,8 +56,9 @@ export default function UsersPage() {
     (supabase: ReturnType<typeof createClient>, searchTerm: string) => {
       let query = supabase
         .from("profiles")
-        .select("*", { count: "exact" })
+        .select("*, employee_contracts!employee_contracts_employee_id_fkey(gross_salary)", { count: "exact" })
         .eq("entity", entity)
+        .in("role", roleTab === "employee" ? ["employee", "admin"] : ["freelancer"])
         .order("last_name");
 
       if (searchTerm) {
@@ -66,14 +70,19 @@ export default function UsersPage() {
 
       return query;
     },
-    [entity]
+    [entity, roleTab]
   );
 
   const loadProfiles = useCallback(async (searchTerm: string) => {
     setLoading(true);
     const supabase = createClient();
     const { data, count } = await buildQuery(supabase, searchTerm).range(0, PAGE_SIZE - 1);
-    const results = data || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results = (data || []).map((p: any) => {
+      const contracts = (p.employee_contracts || []) as { gross_salary: number }[];
+      const latest = contracts.length > 0 ? contracts[contracts.length - 1] : null;
+      return { ...p, gross_salary: latest?.gross_salary, employee_contracts: undefined };
+    });
     const total = count || 0;
     setProfiles(results);
     setTotalCount(total);
@@ -81,17 +90,22 @@ export default function UsersPage() {
     setLoading(false);
   }, [buildQuery]);
 
-  // Reload when entity or debounced search changes
+  // Reload when entity, role tab, or debounced search changes
   useEffect(() => {
     loadProfiles(debouncedSearch);
-  }, [entity, debouncedSearch, loadProfiles]);
+  }, [entity, roleTab, debouncedSearch, loadProfiles]);
 
   async function loadMore() {
     setLoadingMore(true);
     const supabase = createClient();
     const from = profiles.length;
     const { data } = await buildQuery(supabase, debouncedSearch).range(from, from + PAGE_SIZE - 1);
-    const newResults = data || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newResults = (data || []).map((p: any) => {
+      const contracts = (p.employee_contracts || []) as { gross_salary: number }[];
+      const latest = contracts.length > 0 ? contracts[contracts.length - 1] : null;
+      return { ...p, gross_salary: latest?.gross_salary, employee_contracts: undefined };
+    });
     const combined = [...profiles, ...newResults];
     setProfiles(combined);
     setHasMore(combined.length < totalCount);
@@ -180,10 +194,17 @@ export default function UsersPage() {
         </Dialog>
       </div>
 
+      <Tabs value={roleTab} onValueChange={(v) => setRoleTab(v as "employee" | "freelancer")}>
+        <TabsList>
+          <TabsTrigger value="employee">Employees</TabsTrigger>
+          <TabsTrigger value="freelancer">Freelancers</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search by name, email, role, or department..."
+          placeholder="Search by name, email, or department..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
@@ -200,7 +221,7 @@ export default function UsersPage() {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Email</TableHead>
+            <TableHead>Gross Salary</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Department</TableHead>
             <TableHead>Status</TableHead>
@@ -215,7 +236,7 @@ export default function UsersPage() {
           ) : profiles.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                {debouncedSearch ? `No users matching "${debouncedSearch}".` : "No users in this entity space. Invite someone to get started."}
+                {debouncedSearch ? `No ${roleTab}s matching "${debouncedSearch}".` : `No ${roleTab}s in this entity space. Invite someone to get started.`}
               </TableCell>
             </TableRow>
           ) : (
@@ -226,7 +247,7 @@ export default function UsersPage() {
                     {p.first_name} {p.last_name}
                   </Link>
                 </TableCell>
-                <TableCell>{p.email}</TableCell>
+                <TableCell>{p.gross_salary ? formatCurrency(p.gross_salary) : "—"}</TableCell>
                 <TableCell>
                   <Badge variant={roleBadgeVariant(p.role)}>{p.role}</Badge>
                 </TableCell>

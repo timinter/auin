@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { formatPeriod, getApiError } from "@/lib/utils";
+import { calculateWorkingDays } from "@/lib/working-days";
 import { Spinner } from "@/components/spinner";
 import { Plus, Lock, LockOpen } from "lucide-react";
 
@@ -29,6 +30,26 @@ export default function PeriodsPage() {
   }, []);
 
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
+
+  // Auto-calculate working days when year/month change
+  useEffect(() => {
+    const year = typeof form.year === "number" ? form.year : parseInt(String(form.year));
+    const month = typeof form.month === "number" ? form.month : parseInt(String(form.month));
+    if (!year || !month || month < 1 || month > 12) return;
+
+    async function calcDays() {
+      const supabase = createClient();
+      const { data: holidays } = await supabase
+        .from("corporate_holidays")
+        .select("date")
+        .gte("date", `${year}-${String(month).padStart(2, "0")}-01`)
+        .lte("date", `${year}-${String(month).padStart(2, "0")}-31`);
+      const holidayDates = (holidays || []).map((h: { date: string }) => h.date);
+      const days = calculateWorkingDays(year, month, holidayDates);
+      setForm((prev) => ({ ...prev, working_days: days }));
+    }
+    calcDays();
+  }, [form.year, form.month]);
 
   async function handleCreate() {
     const res = await fetch("/api/admin/periods", {

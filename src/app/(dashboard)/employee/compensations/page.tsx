@@ -31,6 +31,7 @@ export default function EmployeeCompensationsPage() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [receiptDate, setReceiptDate] = useState("");
+  const [currency, setCurrency] = useState("BYN");
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [receiptName, setReceiptName] = useState<string | null>(null);
 
@@ -50,6 +51,7 @@ export default function EmployeeCompensationsPage() {
           .from("compensation_categories")
           .select("*")
           .eq("is_active", true)
+          .eq("admin_only", false)
           .order("sort_order"),
       ]);
 
@@ -107,7 +109,7 @@ export default function EmployeeCompensationsPage() {
         period_id: selectedPeriod,
         category_id: selectedCategory,
         submitted_amount: parseFloat(amount),
-        submitted_currency: "BYN",
+        submitted_currency: currency,
         receipt_date: receiptDate || undefined,
         receipt_url: receiptUrl,
       }),
@@ -117,6 +119,7 @@ export default function EmployeeCompensationsPage() {
       toast({ title: "Compensation submitted" });
       setAmount("");
       setSelectedCategory("");
+      setCurrency("BYN");
       setReceiptDate("");
       setReceiptUrl(null);
       setReceiptName(null);
@@ -170,7 +173,7 @@ export default function EmployeeCompensationsPage() {
       <Card>
         <CardHeader><CardTitle>Submit Compensation</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
               <Label>Category</Label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -186,7 +189,7 @@ export default function EmployeeCompensationsPage() {
               </Select>
             </div>
             <div>
-              <Label>Amount (BYN)</Label>
+              <Label>Amount</Label>
               <Input
                 type="number"
                 min={0}
@@ -195,6 +198,16 @@ export default function EmployeeCompensationsPage() {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
               />
+            </div>
+            <div>
+              <Label>Currency</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BYN">BYN</SelectItem>
+                  <SelectItem value="USD">USD</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Receipt Date</Label>
@@ -264,7 +277,7 @@ export default function EmployeeCompensationsPage() {
               <TableRow>
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">Submitted</TableHead>
-                <TableHead className="text-right">Approved</TableHead>
+                <TableHead className="text-right">Approved (USD)</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead />
               </TableRow>
@@ -279,7 +292,7 @@ export default function EmployeeCompensationsPage() {
               ) : compensations.map((comp) => (
                 <TableRow key={comp.id}>
                   <TableCell className="font-medium">{comp.category?.label || "—"}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(comp.submitted_amount)}</TableCell>
+                  <TableCell className="text-right">{comp.submitted_amount.toFixed(2)} {comp.submitted_currency || "BYN"}</TableCell>
                   <TableCell className="text-right">
                     {comp.approved_amount != null ? formatCurrency(comp.approved_amount) : "—"}
                   </TableCell>
