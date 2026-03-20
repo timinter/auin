@@ -82,7 +82,7 @@ export default function EmployeeCompensationsPage() {
       const res = await fetch("/api/employee/upload", { method: "POST", body: formData });
       if (res.ok) {
         const data = await res.json();
-        setReceiptUrl(data.url);
+        setReceiptUrl(data.path);
         setReceiptName(file.name);
       } else {
         const errMsg = await getApiError(res);

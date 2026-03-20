@@ -40,6 +40,7 @@ const adminNav: NavItem[] = [
 const employeeNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "My Payroll", href: "/employee/payroll", icon: FileText },
+  { title: "Salary History", href: "/employee/salary-history", icon: Clock },
   { title: "Compensations", href: "/employee/compensations", icon: Heart },
   { title: "Profile", href: "/employee/profile", icon: UserCircle },
 ];

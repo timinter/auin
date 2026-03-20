@@ -15,8 +15,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { X, Lock, LockOpen, Download, Pencil, Send, CheckCircle, XCircle } from "lucide-react";
-import { PageSpinner } from "@/components/spinner";
+import { PageSpinner, Spinner } from "@/components/spinner";
 import { formatPeriod, formatCurrency, getApiError } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -50,6 +51,10 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
   const [compensations, setCompensations] = useState<EmployeeCompensation[]>([]);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+  const [receiptPreviewPath, setReceiptPreviewPath] = useState<string | null>(null);
+  const [receiptPreviewLoading, setReceiptPreviewLoading] = useState(false);
+  const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
   const [tableEditMode, setTableEditMode] = useState(false);
   const [editData, setEditData] = useState<Record<string, EditableFields>>({});
   const [saving, setSaving] = useState(false);
@@ -331,6 +336,35 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
       toast({ title: "Error", description: errMsg, variant: "destructive" });
     }
     setSaving(false);
+  }
+
+  async function handleReceiptPreview(receiptPath: string) {
+    setReceiptPreviewOpen(true);
+    setReceiptPreviewLoading(true);
+    setReceiptPreviewUrl(null);
+    setReceiptPreviewPath(receiptPath);
+
+    if (receiptPath.startsWith("http")) {
+      setReceiptPreviewUrl(receiptPath);
+      setReceiptPreviewLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/receipt-url?path=${encodeURIComponent(receiptPath)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setReceiptPreviewUrl(data.url);
+      } else {
+        toast({ title: "Error", description: "Failed to load receipt", variant: "destructive" });
+        setReceiptPreviewOpen(false);
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to load receipt", variant: "destructive" });
+      setReceiptPreviewOpen(false);
+    } finally {
+      setReceiptPreviewLoading(false);
+    }
   }
 
   async function handleCompensationReview(compId: string, status: "approved" | "rejected", approvedAmount?: number) {
@@ -805,7 +839,7 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
                       </TableCell>
                       <TableCell>
                         {comp.receipt_url ? (
-                          <a href={comp.receipt_url} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline">View</a>
+                          <button onClick={() => handleReceiptPreview(comp.receipt_url!)} className="text-sm text-primary hover:underline">View</button>
                         ) : "—"}
                       </TableCell>
                       <TableCell>
@@ -845,6 +879,26 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={receiptPreviewOpen} onOpenChange={setReceiptPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Receipt Preview</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center min-h-[300px]">
+            {receiptPreviewLoading ? (
+              <Spinner className="h-8 w-8 text-foreground" />
+            ) : receiptPreviewUrl ? (
+              receiptPreviewPath?.endsWith(".pdf") ? (
+                <iframe src={receiptPreviewUrl} className="w-full h-[75vh] rounded" />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={receiptPreviewUrl} alt="Receipt" className="max-w-full max-h-[75vh] object-contain rounded" />
+              )
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
