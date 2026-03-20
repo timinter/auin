@@ -8,6 +8,8 @@ export type InvoiceStatus = 'draft' | 'pending_approval' | 'approved' | 'rejecte
 export type ProjectStatus = 'active' | 'archived';
 export type Department = 'Delivery' | 'HR / Sourcer' | 'Marketing' | 'Sales' | 'Leadgen' | 'Administrative';
 
+export type FreelancerType = 'individual' | 'legal_entity';
+
 export interface Profile {
   id: string;
   email: string;
@@ -28,6 +30,14 @@ export interface Profile {
   invoice_number_seq: number;
   contract_date: string | null;
   tax_rate: number;
+  // Freelancer legal entity fields
+  freelancer_type: FreelancerType;
+  company_name: string | null;
+  registration_number: string | null;
+  company_address: string | null;
+  signatory_name: string | null;
+  signatory_position: string | null;
+  is_vat_payer: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -203,6 +213,41 @@ export interface CorporateHoliday {
   date: string;
   name: string;
   created_at: string;
+}
+
+export interface PaymentSplit {
+  id: string;
+  profile_id: string;
+  payment_channel: PaymentChannel;
+  percentage: number;
+  bank_details: BankDetails | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type LeaveType = 'unpaid' | 'sick' | 'vacation';
+export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+
+export interface LeaveRequest {
+  id: string;
+  employee_id: string;
+  period_id: string;
+  leave_type: LeaveType;
+  start_date: string;
+  end_date: string;
+  days_count: number;
+  reason: string | null;
+  status: LeaveStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  employee?: Profile;
+  period?: PayrollPeriod;
+  reviewer?: Profile;
 }
 
 export interface AuditLogEntry {

@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const employeeIds = employees.map((e) => e.id);
 
     // Batch: fetch existing records, contracts, and holidays in parallel
-    const [existingResult, contractsResult, holidaysResult] = await Promise.all([
+    const [existingResult, contractsResult, holidaysResult, leavesResult] = await Promise.all([
       serviceClient
         .from("payroll_records")
         .select("employee_id")
@@ -62,11 +62,24 @@ export async function POST(request: Request) {
         .select("date")
         .gte("date", periodStart)
         .lte("date", periodEnd),
+      serviceClient
+        .from("leave_requests")
+        .select("employee_id, days_count")
+        .in("employee_id", employeeIds)
+        .eq("period_id", period_id)
+        .eq("status", "approved"),
     ]);
 
     const holidaySet = new Set(
       (holidaysResult.data || []).map((h: { date: string }) => h.date)
     );
+
+    // Aggregate approved leave days per employee
+    const leaveDaysByEmployee = new Map<string, number>();
+    for (const l of (leavesResult.data || [])) {
+      const current = leaveDaysByEmployee.get(l.employee_id) || 0;
+      leaveDaysByEmployee.set(l.employee_id, current + l.days_count);
+    }
 
     const existingEmployeeIds = new Set(
       (existingResult.data || []).map((r) => r.employee_id)
@@ -99,7 +112,8 @@ export async function POST(request: Request) {
         continue;
       }
 
-      const daysWorked = period.working_days;
+      const leaveDays = leaveDaysByEmployee.get(emp.id) || 0;
+      const daysWorked = Math.max(0, period.working_days - leaveDays);
       const proratedGross = (grossSalary / period.working_days) * daysWorked;
 
       records.push({

@@ -167,6 +167,14 @@ export const updateProfileSchema = z.object({
   invoice_number_prefix: safeText(20).transform((v) => v || null).optional(),
   invoice_number_seq: z.number().int().min(1).max(99_999).optional(),
   contract_date: z.union([dateString, z.literal("")]).transform((v) => v || null).optional(),
+  // Freelancer legal entity fields
+  freelancer_type: z.enum(["individual", "legal_entity"]).optional(),
+  company_name: safeText(200).transform((v) => v || null).optional(),
+  registration_number: safeText(50).transform((v) => v || null).optional(),
+  company_address: safeText(500).transform((v) => v || null).optional(),
+  signatory_name: safeName(100).transform((v) => v || null).optional(),
+  signatory_position: safeText(100).transform((v) => v || null).optional(),
+  is_vat_payer: z.boolean().optional(),
 });
 
 export const bankDetailsSchema = z.object({
@@ -194,6 +202,23 @@ export const bankDetailsSchema = z.object({
     .optional().default(""),
   bank_address: z.string().max(200).transform(sanitizeText).optional().default(""),
 });
+
+export const createLeaveSchema = z.object({
+  period_id: z.string().uuid(),
+  leave_type: z.enum(["unpaid", "sick", "vacation"]),
+  start_date: dateString,
+  end_date: dateString,
+  days_count: z.number().int().min(1).max(31),
+  reason: safeText(1000).optional(),
+});
+
+export const reviewLeaveSchema = z.object({
+  status: z.enum(["approved", "rejected"]),
+  rejection_reason: safeText(1000).optional(),
+}).refine(
+  (data) => data.status !== "rejected" || (data.rejection_reason && data.rejection_reason.length > 0),
+  { message: "Rejection reason is required", path: ["rejection_reason"] }
+);
 
 export const rejectInvoiceSchema = z.object({
   rejection_reason: safeText(1000).pipe(z.string().min(1, "Rejection reason is required")),

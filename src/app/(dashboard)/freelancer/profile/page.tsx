@@ -35,6 +35,13 @@ export default function FreelancerProfilePage() {
     personal_email: "",
     service_description: "",
     payment_channel: "" as string,
+    freelancer_type: "individual" as string,
+    company_name: "",
+    registration_number: "",
+    company_address: "",
+    signatory_name: "",
+    signatory_position: "",
+    is_vat_payer: false,
   });
 
   useEffect(() => {
@@ -51,6 +58,13 @@ export default function FreelancerProfilePage() {
       personal_email: profile.personal_email || "",
       service_description: profile.service_description || "",
       payment_channel: profile.payment_channel || "",
+      freelancer_type: profile.freelancer_type || "individual",
+      company_name: profile.company_name || "",
+      registration_number: profile.registration_number || "",
+      company_address: profile.company_address || "",
+      signatory_name: profile.signatory_name || "",
+      signatory_position: profile.signatory_position || "",
+      is_vat_payer: profile.is_vat_payer || false,
     });
     async function loadRates() {
       const supabase = createClient();
@@ -120,6 +134,15 @@ export default function FreelancerProfilePage() {
       <Card>
         <CardHeader><CardTitle>Contact & Address</CardTitle></CardHeader>
         <CardContent className="space-y-4">
+          <FormField label="Freelancer Type">
+            <Select value={personalForm.freelancer_type} onValueChange={(v) => setPersonalForm({ ...personalForm, freelancer_type: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="individual">Individual</SelectItem>
+                <SelectItem value="legal_entity">Legal Entity (Company)</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
           <FormField label="Personal Email" error={fieldErrors.personal_email} onClearError={clearFieldError(setFieldErrors, "personal_email")}>
             <Input type="email" value={personalForm.personal_email} onChange={(e) => setPersonalForm({ ...personalForm, personal_email: e.target.value })} placeholder="Your personal email" />
           </FormField>
@@ -141,6 +164,41 @@ export default function FreelancerProfilePage() {
           </FormField>
         </CardContent>
       </Card>
+
+      {personalForm.freelancer_type === "legal_entity" && (
+        <Card>
+          <CardHeader><CardTitle>Legal Entity Details</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <FormField label="Company Name" error={fieldErrors.company_name} onClearError={clearFieldError(setFieldErrors, "company_name")}>
+              <Input value={personalForm.company_name} onChange={(e) => setPersonalForm({ ...personalForm, company_name: e.target.value })} placeholder="Official company name" />
+            </FormField>
+            <FormField label="Registration Number (УНП / ИНН)" error={fieldErrors.registration_number} onClearError={clearFieldError(setFieldErrors, "registration_number")}>
+              <Input value={personalForm.registration_number} onChange={(e) => setPersonalForm({ ...personalForm, registration_number: e.target.value })} placeholder="e.g. 123456789" />
+            </FormField>
+            <FormField label="Company Address" error={fieldErrors.company_address} onClearError={clearFieldError(setFieldErrors, "company_address")}>
+              <Input value={personalForm.company_address} onChange={(e) => setPersonalForm({ ...personalForm, company_address: e.target.value })} placeholder="Registered company address" />
+            </FormField>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Signatory Name" error={fieldErrors.signatory_name} onClearError={clearFieldError(setFieldErrors, "signatory_name")}>
+                <Input value={personalForm.signatory_name} onChange={(e) => setPersonalForm({ ...personalForm, signatory_name: e.target.value })} placeholder="Full name of signatory" />
+              </FormField>
+              <FormField label="Signatory Position" error={fieldErrors.signatory_position} onClearError={clearFieldError(setFieldErrors, "signatory_position")}>
+                <Input value={personalForm.signatory_position} onChange={(e) => setPersonalForm({ ...personalForm, signatory_position: e.target.value })} placeholder="e.g. Director" />
+              </FormField>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="vat-payer"
+                checked={personalForm.is_vat_payer}
+                onChange={(e) => setPersonalForm({ ...personalForm, is_vat_payer: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <label htmlFor="vat-payer" className="text-sm">VAT Payer</label>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader><CardTitle>Assigned Projects & Rates</CardTitle></CardHeader>

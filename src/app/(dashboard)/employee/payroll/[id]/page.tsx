@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/use-profile";
-import type { PayrollRecord } from "@/types";
+import type { PayrollRecord, EmployeeCompensation } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
@@ -16,6 +17,7 @@ import { PageSpinner } from "@/components/spinner";
 export default function EmployeePayrollDetailPage({ params }: { params: { id: string } }) {
   const { profile } = useProfile();
   const [record, setRecord] = useState<PayrollRecord | null>(null);
+  const [compensations, setCompensations] = useState<EmployeeCompensation[]>([]);
   const [loading, setLoading] = useState(true);
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -43,8 +45,20 @@ export default function EmployeePayrollDetailPage({ params }: { params: { id: st
       .eq("id", params.id)
       .single();
     setRecord(data);
+
+    // Load employee's compensations for this period
+    if (data?.period_id && profile) {
+      const { data: comps } = await supabase
+        .from("employee_compensations")
+        .select("*, category:compensation_categories(*)")
+        .eq("employee_id", profile.id)
+        .eq("period_id", data.period_id)
+        .eq("status", "approved");
+      setCompensations(comps || []);
+    }
+
     setLoading(false);
-  }, [params.id]);
+  }, [params.id, profile]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -114,6 +128,20 @@ export default function EmployeePayrollDetailPage({ params }: { params: { id: st
 
           <div className="flex justify-between"><span className="text-muted-foreground">Compensation</span><span>{formatCurrency(record.compensation_amount)}</span></div>
 
+          {record.adjustment_amount !== 0 && (
+            <>
+              <Separator />
+              <div className="flex justify-between">
+                <span className={record.adjustment_amount > 0 ? "text-emerald-600" : "text-red-600"}>
+                  Adjustment{record.adjustment_reason ? ` (${record.adjustment_reason})` : ""}
+                </span>
+                <span className={record.adjustment_amount > 0 ? "text-emerald-600" : "text-red-600"}>
+                  {record.adjustment_amount > 0 ? "+" : ""}{formatCurrency(record.adjustment_amount)}
+                </span>
+              </div>
+            </>
+          )}
+
           <Separator />
 
           <div className="flex justify-between text-lg font-bold p-3 bg-primary/5 rounded-md">
@@ -122,6 +150,37 @@ export default function EmployeePayrollDetailPage({ params }: { params: { id: st
           </div>
         </CardContent>
       </Card>
+
+      {/* Compensation breakdown by category */}
+      {compensations.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Approved Compensations</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-right">Amount (USD)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {compensations.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell>{c.category?.label || "—"}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(c.approved_amount || 0)}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="bg-muted/50 font-semibold">
+                  <TableCell>Total</TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(compensations.reduce((s, c) => s + (c.approved_amount || 0), 0))}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {record.status === "rejected" && record.rejection_reason && (
         <Card>

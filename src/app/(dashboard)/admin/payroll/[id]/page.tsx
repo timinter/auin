@@ -242,7 +242,19 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
               <Button variant="secondary" onClick={handleSend}>Send to Employee</Button>
             )}
             {record.status === "approved" && record.employee?.entity !== "BY" && (
-              <Button variant="outline" onClick={() => window.open(`/api/admin/payroll/${params.id}/pdf`, "_blank")}>
+              <Button variant="outline" onClick={async () => {
+                const res = await fetch(`/api/admin/payroll/${params.id}/pdf`);
+                if (!res.ok) return;
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `invoice-${params.id}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+              }}>
                 Download Invoice PDF
               </Button>
             )}
