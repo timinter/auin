@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useEntity } from "@/lib/hooks/use-entity";
-import type { PayrollPeriod, PayrollRecord, FreelancerInvoice, EmployeeCompensation } from "@/types";
+import type { PayrollPeriod, PayrollRecord, FreelancerInvoice, EmployeeCompensation, CompensationCategory } from "@/types";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -15,8 +17,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { X, Lock, LockOpen, Download, Pencil, Send, CheckCircle, XCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { X, Lock, LockOpen, Download, Pencil, Send, CheckCircle, XCircle, Plus } from "lucide-react";
 import { PageSpinner, Spinner } from "@/components/spinner";
 import { formatPeriod, formatCurrency, getApiError } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +27,8 @@ type EditableFields = {
   days_worked: number | string;
   bonus: number | string;
   compensation_amount: number | string;
+  adjustment_amount: number | string;
+  adjustment_reason: string;
 };
 
 const statusVariant = (s: string) => {
@@ -67,6 +71,10 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
   const [deleting, setDeleting] = useState(false);
   const [nbrbRate, setNbrbRate] = useState<number | null>(null);
   const [fetchingRate, setFetchingRate] = useState(false);
+  const [addCompOpen, setAddCompOpen] = useState(false);
+  const [addCompCategories, setAddCompCategories] = useState<CompensationCategory[]>([]);
+  const [addCompForm, setAddCompForm] = useState({ employee_id: "", category_id: "", amount: "", approved_amount: "" });
+  const [addCompSubmitting, setAddCompSubmitting] = useState(false);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -224,6 +232,7 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
       a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || "payroll.zip";
       a.click();
       URL.revokeObjectURL(url);
+      loadData();
     } catch {
       toast({ title: "Error", description: "Download failed", variant: "destructive" });
     } finally {
@@ -285,6 +294,8 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
         days_worked: r.days_worked,
         bonus: r.bonus,
         compensation_amount: r.compensation_amount,
+        adjustment_amount: r.adjustment_amount || 0,
+        adjustment_reason: r.adjustment_reason || "",
       };
     }
     setEditData(data);
@@ -308,9 +319,11 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
       if (ed.days_worked !== r.days_worked) changed.days_worked = ed.days_worked;
       if (ed.bonus !== r.bonus) changed.bonus = ed.bonus;
       if (ed.compensation_amount !== r.compensation_amount) changed.compensation_amount = ed.compensation_amount;
+      if (ed.adjustment_amount !== (r.adjustment_amount || 0)) changed.adjustment_amount = ed.adjustment_amount;
+      if (ed.adjustment_reason !== (r.adjustment_reason || "")) changed.adjustment_reason = ed.adjustment_reason;
       if (Object.keys(changed).length > 0) {
         const coerced = Object.fromEntries(
-          Object.entries(changed).map(([k, v]) => [k, typeof v === "string" ? (v === "" ? 0 : parseFloat(v) || 0) : v])
+          Object.entries(changed).map(([k, v]) => [k, k === "adjustment_reason" ? v : typeof v === "string" ? (v === "" ? 0 : parseFloat(v) || 0) : v])
         );
         updates.push({ id: r.id, ...coerced });
       }
@@ -379,6 +392,50 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
     } else {
       const errMsg = await getApiError(res);
       toast({ title: "Error", description: errMsg, variant: "destructive" });
+    }
+  }
+
+  async function openAddCompDialog() {
+    setAddCompOpen(true);
+    setAddCompForm({ employee_id: "", category_id: "", amount: "", approved_amount: "" });
+    if (addCompCategories.length === 0) {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("compensation_categories")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order");
+      setAddCompCategories(data || []);
+    }
+  }
+
+  async function handleAddCompensation() {
+    if (!addCompForm.employee_id || !addCompForm.category_id || !addCompForm.amount) return;
+    setAddCompSubmitting(true);
+    try {
+      const res = await fetch("/api/admin/compensations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employee_id: addCompForm.employee_id,
+          period_id: params.id,
+          category_id: addCompForm.category_id,
+          submitted_amount: parseFloat(addCompForm.amount),
+          submitted_currency: "USD",
+          approved_amount: addCompForm.approved_amount ? parseFloat(addCompForm.approved_amount) : parseFloat(addCompForm.amount),
+        }),
+      });
+      if (res.ok) {
+        toast({ title: "Compensation added" });
+        setAddCompOpen(false);
+        loadData();
+      } else {
+        toast({ title: "Error", description: await getApiError(res), variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to add compensation", variant: "destructive" });
+    } finally {
+      setAddCompSubmitting(false);
     }
   }
 
@@ -597,6 +654,7 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
                     <TableHead>Prorated</TableHead>
                     <TableHead>Bonus</TableHead>
                     <TableHead>Comp.</TableHead>
+                    <TableHead>Adj.</TableHead>
                     <TableHead>Total</TableHead>
                     {!tableEditMode && <TableHead>Status</TableHead>}
                   </TableRow>
@@ -656,9 +714,36 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
                               formatCurrency(r.compensation_amount)
                             )}
                           </TableCell>
+                          <TableCell>
+                            {tableEditMode && ed ? (
+                              <div className="space-y-1">
+                                <Input type="number" step={0.01} className="w-20"
+                                  value={ed.adjustment_amount}
+                                  onChange={(e) => updateField(r.id, "adjustment_amount", e.target.value === "" ? "" : parseFloat(e.target.value) || 0)} />
+                                <Input type="text" placeholder="Reason" className="w-28 text-xs"
+                                  value={ed.adjustment_reason}
+                                  onChange={(e) => updateField(r.id, "adjustment_reason", e.target.value)} />
+                              </div>
+                            ) : (
+                              r.adjustment_amount ? (
+                                <span className={r.adjustment_amount > 0 ? "text-emerald-600" : "text-red-600"} title={r.adjustment_reason || undefined}>
+                                  {r.adjustment_amount > 0 ? "+" : ""}{formatCurrency(r.adjustment_amount)}
+                                </span>
+                              ) : "—"
+                            )}
+                          </TableCell>
                           <TableCell className="font-semibold">{formatCurrency(r.total_amount)}</TableCell>
                           {!tableEditMode && (
-                            <TableCell><Badge variant={statusVariant(r.status)}>{r.status.replace("_", " ")}</Badge></TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant={statusVariant(r.status)}>{r.status.replace("_", " ")}</Badge>
+                                {r.downloaded_at && (
+                                  <span className="text-muted-foreground" title={`Downloaded ${new Date(r.downloaded_at).toLocaleDateString()}`}>
+                                    <Download className="h-3.5 w-3.5" />
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
                           )}
                         </TableRow>
                         );
@@ -671,6 +756,7 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
                         <TableCell>{formatCurrency(filteredPayroll.reduce((s, r) => s + r.prorated_gross, 0))}</TableCell>
                         <TableCell>{formatCurrency(filteredPayroll.reduce((s, r) => s + r.bonus, 0))}</TableCell>
                         <TableCell>{formatCurrency(filteredPayroll.reduce((s, r) => s + r.compensation_amount, 0))}</TableCell>
+                        <TableCell>{formatCurrency(filteredPayroll.reduce((s, r) => s + (r.adjustment_amount || 0), 0))}</TableCell>
                         <TableCell>{formatCurrency(filteredPayroll.reduce((s, r) => s + r.total_amount, 0))}</TableCell>
                         {!tableEditMode && <TableCell />}
                       </TableRow>
@@ -795,6 +881,106 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
         </TabsContent>
 
         <TabsContent value="compensations">
+          <div className="flex justify-end mb-4">
+            <Button size="sm" onClick={openAddCompDialog}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> Add Compensation
+            </Button>
+          </div>
+
+          <Dialog open={addCompOpen} onOpenChange={setAddCompOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Compensation</DialogTitle>
+                <DialogDescription>Add a compensation entry for an employee (e.g. Birthday, English).</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Employee</Label>
+                  <Select value={addCompForm.employee_id} onValueChange={(v) => setAddCompForm((f) => ({ ...f, employee_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                    <SelectContent>
+                      {payrollRecords.map((r) => (
+                        <SelectItem key={r.employee_id} value={r.employee_id}>
+                          {r.employee?.first_name} {r.employee?.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Category</Label>
+                  <Select value={addCompForm.category_id} onValueChange={(v) => setAddCompForm((f) => ({ ...f, category_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent>
+                      {addCompCategories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.label}{c.admin_only ? " (admin)" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Amount (USD)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={addCompForm.amount}
+                      onChange={(e) => setAddCompForm((f) => ({ ...f, amount: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Approved Amount (USD)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="Same as amount if empty"
+                      value={addCompForm.approved_amount}
+                      onChange={(e) => setAddCompForm((f) => ({ ...f, approved_amount: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleAddCompensation} disabled={addCompSubmitting || !addCompForm.employee_id || !addCompForm.category_id || !addCompForm.amount}>
+                  {addCompSubmitting ? "Adding..." : "Add & Approve"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Category breakdown summary */}
+          {compensations.filter((c) => c.status === "approved").length > 0 && (
+            <Card className="mb-4">
+              <CardContent className="pt-6">
+                <h3 className="text-sm font-semibold mb-3">Approved Breakdown by Category</h3>
+                <div className="flex flex-wrap gap-3">
+                  {Object.entries(
+                    compensations
+                      .filter((c) => c.status === "approved" && c.approved_amount != null)
+                      .reduce<Record<string, number>>((acc, c) => {
+                        const cat = c.category?.label || "Other";
+                        acc[cat] = (acc[cat] || 0) + (c.approved_amount || 0);
+                        return acc;
+                      }, {})
+                  ).map(([cat, total]) => (
+                    <div key={cat} className="flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-sm">
+                      <span className="text-muted-foreground">{cat}</span>
+                      <span className="font-semibold">{formatCurrency(total)}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-sm font-semibold">
+                    <span>Total</span>
+                    <span>{formatCurrency(compensations.filter((c) => c.approved_amount != null).reduce((s, c) => s + (c.approved_amount || 0), 0))}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardContent className="pt-6">
               <Table>

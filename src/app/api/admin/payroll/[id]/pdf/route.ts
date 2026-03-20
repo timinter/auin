@@ -121,6 +121,13 @@ export async function GET(
       }
     }).catch((err) => console.error("Drive upload error:", err));
 
+    // Mark as downloaded
+    await serviceClient
+      .from("payroll_records")
+      .update({ downloaded_at: new Date().toISOString() })
+      .eq("id", params.id)
+      .is("downloaded_at", null);
+
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
