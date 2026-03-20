@@ -175,6 +175,12 @@ export interface InvoiceData {
     bankAddress?: string;
     swift?: string;
     email: string;
+    // Legal entity fields
+    companyName?: string;
+    registrationNumber?: string;
+    signatoryName?: string;
+    signatoryPosition?: string;
+    isVatPayer?: boolean;
   };
   lineItems: {
     description: string;
@@ -287,7 +293,22 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
           {/* Row 3: Supplier / Customer details */}
           <View style={styles.row}>
             <View style={styles.cellLeft}>
-              <Text style={styles.supplierName}>{data.supplier.fullName}</Text>
+              <Text style={styles.supplierName}>
+                {data.supplier.companyName || data.supplier.fullName}
+              </Text>
+              {data.supplier.companyName && (
+                <Detail label="Represented by:" value={
+                  data.supplier.signatoryName
+                    ? `${data.supplier.signatoryName}${data.supplier.signatoryPosition ? `, ${data.supplier.signatoryPosition}` : ""}`
+                    : data.supplier.fullName
+                } />
+              )}
+              {data.supplier.registrationNumber && (
+                <Detail label="Reg. No.:" value={data.supplier.registrationNumber} />
+              )}
+              {data.supplier.isVatPayer && (
+                <Detail label="VAT:" value="VAT payer" />
+              )}
               <Detail label="Legal Address:" value={data.supplier.legalAddress} />
               <Detail label="IBAN:" value={data.supplier.iban} />
               <Detail label="Bank Account:" value={data.supplier.bankAccount} />
@@ -392,7 +413,7 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
 
         {/* ===== SIGNATURE ===== */}
         <View style={styles.signature}>
-          <Text>_____________________  {data.supplier.fullName}</Text>
+          <Text>_____________________  {data.supplier.signatoryName || data.supplier.fullName}</Text>
         </View>
       </Page>
     </Document>

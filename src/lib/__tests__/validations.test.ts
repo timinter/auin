@@ -9,6 +9,8 @@ import {
   uuidParam,
   updateProfileSchema,
   rejectPayrollSchema,
+  createLeaveSchema,
+  reviewLeaveSchema,
 } from "../validations";
 
 describe("inviteSchema", () => {
@@ -330,5 +332,114 @@ describe("rejectPayrollSchema", () => {
     if (result.success) {
       expect(result.data.rejection_reason).not.toContain("<b>");
     }
+  });
+});
+
+describe("createLeaveSchema", () => {
+  it("accepts valid leave request", () => {
+    const result = createLeaveSchema.safeParse({
+      period_id: "550e8400-e29b-41d4-a716-446655440000",
+      leave_type: "unpaid",
+      start_date: "2026-03-10",
+      end_date: "2026-03-14",
+      days_count: 5,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts leave with reason", () => {
+    const result = createLeaveSchema.safeParse({
+      period_id: "550e8400-e29b-41d4-a716-446655440000",
+      leave_type: "sick",
+      start_date: "2026-03-10",
+      end_date: "2026-03-10",
+      days_count: 1,
+      reason: "Doctor appointment",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid leave type", () => {
+    const result = createLeaveSchema.safeParse({
+      period_id: "550e8400-e29b-41d4-a716-446655440000",
+      leave_type: "maternity",
+      start_date: "2026-03-10",
+      end_date: "2026-03-14",
+      days_count: 5,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects zero days_count", () => {
+    const result = createLeaveSchema.safeParse({
+      period_id: "550e8400-e29b-41d4-a716-446655440000",
+      leave_type: "unpaid",
+      start_date: "2026-03-10",
+      end_date: "2026-03-14",
+      days_count: 0,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects days_count > 31", () => {
+    const result = createLeaveSchema.safeParse({
+      period_id: "550e8400-e29b-41d4-a716-446655440000",
+      leave_type: "vacation",
+      start_date: "2026-03-01",
+      end_date: "2026-03-31",
+      days_count: 32,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid date format", () => {
+    const result = createLeaveSchema.safeParse({
+      period_id: "550e8400-e29b-41d4-a716-446655440000",
+      leave_type: "unpaid",
+      start_date: "03/10/2026",
+      end_date: "03/14/2026",
+      days_count: 5,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("sanitizes HTML in reason", () => {
+    const result = createLeaveSchema.safeParse({
+      period_id: "550e8400-e29b-41d4-a716-446655440000",
+      leave_type: "unpaid",
+      start_date: "2026-03-10",
+      end_date: "2026-03-14",
+      days_count: 5,
+      reason: "<script>alert(1)</script>Personal",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.reason).not.toContain("<script>");
+    }
+  });
+});
+
+describe("reviewLeaveSchema", () => {
+  it("accepts approval without reason", () => {
+    const result = reviewLeaveSchema.safeParse({ status: "approved" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts rejection with reason", () => {
+    const result = reviewLeaveSchema.safeParse({
+      status: "rejected",
+      rejection_reason: "Not enough notice",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects rejection without reason", () => {
+    const result = reviewLeaveSchema.safeParse({ status: "rejected" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid status", () => {
+    const result = reviewLeaveSchema.safeParse({ status: "pending" });
+    expect(result.success).toBe(false);
   });
 });

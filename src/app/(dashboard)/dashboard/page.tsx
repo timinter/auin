@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/use-profile";
 import { useEntity } from "@/lib/hooks/use-entity";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPeriod } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -47,6 +48,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [trends, setTrends] = useState<TrendData[]>([]);
   const [trendsLoading, setTrendsLoading] = useState(false);
+  const [periods, setPeriods] = useState<Array<{ id: string; year: number; month: number }>>([]);
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
 
   // Track entity switches separately so we skeleton values without hiding the whole page
   const [entityLoading, setEntityLoading] = useState(false);
@@ -65,19 +68,29 @@ export default function DashboardPage() {
     async function loadStats() {
       const supabase = createClient();
 
-      // Get current/latest period
-      const { data: period } = await supabase
+      // Fetch all periods for the selector
+      const { data: allPeriods } = await supabase
         .from("payroll_periods")
-        .select("*")
+        .select("id, year, month")
         .order("year", { ascending: false })
-        .order("month", { ascending: false })
-        .limit(1)
-        .single();
+        .order("month", { ascending: false });
+
+      const periodsList = allPeriods || [];
+      setPeriods(periodsList);
+
+      // Use selected period or fall back to latest
+      const period = selectedPeriodId
+        ? periodsList.find((p) => p.id === selectedPeriodId)
+        : periodsList[0];
 
       if (!period) {
         setStats({ total: 0, approved: 0, pending: 0, rejected: 0 });
         setLoading(false);
         return;
+      }
+
+      if (!selectedPeriodId && periodsList.length > 0) {
+        setSelectedPeriodId(periodsList[0].id);
       }
 
       if (profile!.role === "admin") {
@@ -205,7 +218,7 @@ export default function DashboardPage() {
     }
 
     loadStats();
-  }, [profile, entity]);
+  }, [profile, entity, selectedPeriodId]);
 
   if (loading || !profile) {
     return (
@@ -249,14 +262,30 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">
-          Welcome, {profile.first_name}
-        </h1>
-        {stats?.currentPeriod && (
-          <p className="text-muted-foreground">
-            Current period: {formatPeriod(stats.currentPeriod.year, stats.currentPeriod.month)}
-          </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">
+            Welcome, {profile.first_name}
+          </h1>
+          {stats?.currentPeriod && (
+            <p className="text-muted-foreground">
+              Current period: {formatPeriod(stats.currentPeriod.year, stats.currentPeriod.month)}
+            </p>
+          )}
+        </div>
+        {profile.role === "admin" && periods.length > 0 && (
+          <Select value={selectedPeriodId || ""} onValueChange={setSelectedPeriodId}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              {periods.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {formatPeriod(p.year, p.month)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
       </div>
 

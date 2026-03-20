@@ -3,20 +3,24 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/use-profile";
-import type { EmployeeContract, BankDetails } from "@/types";
+import type { EmployeeContract, BankDetails, PaymentSplit } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormField, clearFieldError } from "@/components/ui/form-field";
 import { useToast } from "@/components/ui/use-toast";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, getApiError } from "@/lib/utils";
 import { PageSpinner } from "@/components/spinner";
+import { Plus, Trash2 } from "lucide-react";
 
 export default function EmployeeProfilePage() {
   const { profile } = useProfile();
   const [contracts, setContracts] = useState<EmployeeContract[]>([]);
+  const [splits, setSplits] = useState<{ payment_channel: string; percentage: number }[]>([]);
+  const [savingSplits, setSavingSplits] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
@@ -47,7 +51,7 @@ export default function EmployeeProfilePage() {
       legal_address: profile.legal_address || "",
       personal_email: profile.personal_email || "",
     });
-    async function loadContracts() {
+    async function loadData() {
       const supabase = createClient();
       const { data } = await supabase
         .from("employee_contracts")
@@ -55,8 +59,20 @@ export default function EmployeeProfilePage() {
         .eq("employee_id", profile!.id)
         .order("effective_from", { ascending: false });
       setContracts(data || []);
+
+      // Load payment splits
+      const splitsRes = await fetch("/api/profile/splits");
+      if (splitsRes.ok) {
+        const splitsData = await splitsRes.json();
+        if (splitsData.length > 0) {
+          setSplits(splitsData.map((s: PaymentSplit) => ({
+            payment_channel: s.payment_channel,
+            percentage: s.percentage,
+          })));
+        }
+      }
     }
-    loadContracts();
+    loadData();
   }, [profile]);
 
   async function handleSave() {
@@ -196,6 +212,128 @@ export default function EmployeeProfilePage() {
             <Input value={bank.bank_address} onChange={(e) => setBank({ ...bank, bank_address: e.target.value })} />
           </FormField>
           <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Payment Splits</CardTitle>
+            {splits.length === 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSplits([{ payment_channel: profile.payment_channel || "BANK", percentage: 100 }])}
+              >
+                <Plus className="h-4 w-4 mr-1" /> Configure Splits
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {splits.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No payment splits configured. Your full salary is paid via {profile.payment_channel || "your default channel"}.
+            </p>
+          ) : (
+            <>
+              {splits.map((split, idx) => (
+                <div key={idx} className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <label className="text-sm font-medium">Channel</label>
+                    <Select
+                      value={split.payment_channel}
+                      onValueChange={(v) => {
+                        const next = [...splits];
+                        next[idx] = { ...next[idx], payment_channel: v };
+                        setSplits(next);
+                      }}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BANK">Bank Transfer</SelectItem>
+                        <SelectItem value="CRYPTO">Crypto</SelectItem>
+                        <SelectItem value="PAYONEER">Payoneer</SelectItem>
+                        <SelectItem value="AMC">AMC</SelectItem>
+                        <SelectItem value="Interexy">Interexy</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-24">
+                    <label className="text-sm font-medium">%</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={split.percentage}
+                      onChange={(e) => {
+                        const next = [...splits];
+                        next[idx] = { ...next[idx], percentage: parseFloat(e.target.value) || 0 };
+                        setSplits(next);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setSplits(splits.filter((_, i) => i !== idx))}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+
+              {(() => {
+                const total = splits.reduce((s, sp) => s + sp.percentage, 0);
+                return total !== 100 && (
+                  <p className="text-sm text-destructive">Total: {total}% — must equal 100%</p>
+                );
+              })()}
+
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSplits([...splits, { payment_channel: "BANK", percentage: 0 }])}
+                  disabled={splits.length >= 5}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add Split
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={savingSplits || splits.reduce((s, sp) => s + sp.percentage, 0) !== 100}
+                  onClick={async () => {
+                    setSavingSplits(true);
+                    const res = await fetch("/api/profile/splits", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ splits }),
+                    });
+                    if (res.ok) {
+                      toast({ title: "Payment splits saved" });
+                    } else {
+                      const errMsg = await getApiError(res);
+                      toast({ title: "Error", description: errMsg, variant: "destructive" });
+                    }
+                    setSavingSplits(false);
+                  }}
+                >
+                  {savingSplits ? "Saving..." : "Save Splits"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    await fetch("/api/profile/splits", { method: "DELETE" });
+                    setSplits([]);
+                    toast({ title: "Splits removed" });
+                  }}
+                >
+                  Remove Splits
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

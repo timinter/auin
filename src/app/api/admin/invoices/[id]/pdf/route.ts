@@ -81,13 +81,19 @@ export async function GET(
       entity: freelancer.entity || "US",
       supplier: {
         fullName: `${freelancer.first_name} ${freelancer.last_name}`,
-        legalAddress: freelancer.legal_address || undefined,
+        legalAddress: freelancer.legal_address || freelancer.company_address || undefined,
         iban: bank.iban || undefined,
         bankAccount: bank.account_number || undefined,
         bankName: bank.bank_name || undefined,
         bankAddress: bank.bank_address || undefined,
         swift: bank.swift || undefined,
         email: freelancer.personal_email || freelancer.email,
+        // Legal entity fields
+        companyName: freelancer.freelancer_type === "legal_entity" ? freelancer.company_name || undefined : undefined,
+        registrationNumber: freelancer.registration_number || undefined,
+        signatoryName: freelancer.signatory_name || undefined,
+        signatoryPosition: freelancer.signatory_position || undefined,
+        isVatPayer: freelancer.is_vat_payer || false,
       },
       lineItems,
     };

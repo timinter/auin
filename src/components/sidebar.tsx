@@ -17,6 +17,7 @@ import {
   Clock,
   Heart,
   BarChart3,
+  CalendarOff,
 } from "lucide-react";
 
 interface NavItem {
@@ -32,6 +33,7 @@ const adminNav: NavItem[] = [
   { title: "Projects", href: "/admin/projects", icon: FolderOpen },
   { title: "Freelancer Invoices", href: "/admin/freelancer-invoices", icon: Receipt },
   { title: "Receipts", href: "/admin/receipts", icon: Heart },
+  { title: "Leaves", href: "/admin/leaves", icon: CalendarOff },
   { title: "Holidays", href: "/admin/holidays", icon: Clock },
   { title: "Reports", href: "/admin/reports", icon: BarChart3 },
   { title: "Audit Log", href: "/admin/audit-log", icon: ScrollText },
@@ -42,6 +44,7 @@ const employeeNav: NavItem[] = [
   { title: "My Payroll", href: "/employee/payroll", icon: FileText },
   { title: "Salary History", href: "/employee/salary-history", icon: Clock },
   { title: "Compensations", href: "/employee/compensations", icon: Heart },
+  { title: "Leaves", href: "/employee/leaves", icon: CalendarOff },
   { title: "Profile", href: "/employee/profile", icon: UserCircle },
 ];
 
