@@ -81,8 +81,7 @@ export default function UsersPage() {
     const results = (data || []).map((p: any) => {
       const contracts = (p.employee_contracts || []) as { gross_salary: number }[];
       const latest = contracts.length > 0 ? contracts[contracts.length - 1] : null;
-      const { employee_contracts: _, ...rest } = p;
-      return { ...rest, gross_salary: latest?.gross_salary };
+      return { ...p, gross_salary: latest?.gross_salary, employee_contracts: undefined };
     });
     const total = count || 0;
     setProfiles(results);
@@ -105,8 +104,7 @@ export default function UsersPage() {
     const newResults = (data || []).map((p: any) => {
       const contracts = (p.employee_contracts || []) as { gross_salary: number }[];
       const latest = contracts.length > 0 ? contracts[contracts.length - 1] : null;
-      const { employee_contracts: _, ...rest } = p;
-      return { ...rest, gross_salary: latest?.gross_salary };
+      return { ...p, gross_salary: latest?.gross_salary, employee_contracts: undefined };
     });
     const combined = [...profiles, ...newResults];
     setProfiles(combined);
