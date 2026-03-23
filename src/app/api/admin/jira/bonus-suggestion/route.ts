@@ -54,7 +54,8 @@ export async function GET(request: Request) {
       // Dynamic import to avoid errors if Jira is not configured
       const { fetchUserWorklogHours } = await import("@/lib/jira/client");
       const startDate = `${period.year}-${String(period.month).padStart(2, "0")}-01`;
-      const endDate = new Date(period.year, period.month, 0).toISOString().split("T")[0];
+      const lastDay = new Date(period.year, period.month, 0).getDate();
+      const endDate = `${period.year}-${String(period.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
       const hours = await fetchUserWorklogHours(
         profileResult.data.email,

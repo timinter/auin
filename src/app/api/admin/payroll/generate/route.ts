@@ -37,8 +37,8 @@ export async function POST(request: Request) {
     }
 
     const periodStart = `${period.year}-${String(period.month).padStart(2, "0")}-01`;
-    const periodEndDate = new Date(period.year, period.month, 0);
-    const periodEnd = periodEndDate.toISOString().split("T")[0];
+    const lastDay = new Date(period.year, period.month, 0).getDate();
+    const periodEnd = `${period.year}-${String(period.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
     const employeeIds = employees.map((e) => e.id);
 
