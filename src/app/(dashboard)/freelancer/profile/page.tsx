@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormField, clearFieldError } from "@/components/ui/form-field";
 import { useToast } from "@/components/ui/use-toast";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDisplayDate } from "@/lib/utils";
 import { PageSpinner } from "@/components/spinner";
 
 export default function FreelancerProfilePage() {
@@ -126,7 +126,7 @@ export default function FreelancerProfilePage() {
           <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span>{profile.first_name} {profile.last_name}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{profile.email}</span></div>
           {profile.contract_start_date && (
-            <div className="flex justify-between"><span className="text-muted-foreground">Contract Start</span><span>{profile.contract_start_date}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Contract Start</span><span>{formatDisplayDate(profile.contract_start_date)}</span></div>
           )}
         </CardContent>
       </Card>
@@ -220,7 +220,7 @@ export default function FreelancerProfilePage() {
                   <TableCell className="font-medium">{r.project?.name}</TableCell>
                   <TableCell>{formatCurrency(r.hourly_rate)}/hr</TableCell>
                   <TableCell>{r.currency}</TableCell>
-                  <TableCell>{r.effective_from}</TableCell>
+                  <TableCell>{formatDisplayDate(r.effective_from)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

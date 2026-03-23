@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { formatCurrency, formatPeriod, getApiError } from "@/lib/utils";
+import { formatCurrency, formatPeriod, formatDisplayDate, getApiError } from "@/lib/utils";
 import { PageSpinner } from "@/components/spinner";
 import { Download } from "lucide-react";
 
@@ -195,7 +195,7 @@ export default function CompensationReportPage() {
                       {comp.employee?.first_name} {comp.employee?.last_name}
                     </TableCell>
                     <TableCell>{comp.category?.label || "—"}</TableCell>
-                    <TableCell>{comp.receipt_date || "—"}</TableCell>
+                    <TableCell>{comp.receipt_date ? formatDisplayDate(comp.receipt_date) : "—"}</TableCell>
                     <TableCell className="text-right">
                       {comp.submitted_amount.toFixed(2)} {comp.submitted_currency || "BYN"}
                     </TableCell>

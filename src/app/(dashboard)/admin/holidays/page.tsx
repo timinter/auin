@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { getApiError } from "@/lib/utils";
+import { getApiError, formatDisplayDate } from "@/lib/utils";
 import { PageSpinner } from "@/components/spinner";
 import { Plus, Trash2 } from "lucide-react";
 
@@ -67,10 +67,7 @@ export default function HolidaysPage() {
     }
   }
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr + "T00:00:00");
-    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-  };
+  const formatDate = formatDisplayDate;
 
   return (
     <div className="space-y-6 max-w-2xl">

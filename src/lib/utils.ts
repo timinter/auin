@@ -23,6 +23,26 @@ export function formatPeriod(year: number, month: number): string {
   return `${getMonthName(month)} ${year}`;
 }
 
+/** Format a date string (YYYY-MM-DD or ISO) as DD/MM/YYYY for display */
+export function formatDisplayDate(dateStr: string): string {
+  const d = new Date(dateStr.length === 10 ? dateStr + "T00:00:00" : dateStr);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+/** Format a datetime string as DD/MM/YYYY HH:MM for display */
+export function formatDisplayDateTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  return `${day}/${month}/${year} ${hours}:${mins}`;
+}
+
 /** Format Zod errors into { field: message } map + combined string */
 export function formatZodErrors(error: ZodError) {
   const fieldErrors: Record<string, string> = {};
