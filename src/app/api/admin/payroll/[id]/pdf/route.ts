@@ -5,6 +5,7 @@ import { MONTHS, formatDate, shortDate } from "@/lib/pdf/date-helpers";
 import { uploadPdfToDrive } from "@/lib/gdrive/upload";
 import type { InvoiceData } from "@/lib/pdf/invoice-template";
 import { NextResponse } from "next/server";
+import JSZip from "jszip";
 
 export async function GET(
   _request: Request,
@@ -30,84 +31,126 @@ export async function GET(
 
     const employee = record.employee;
     const period = record.period;
-    const bank = employee?.bank_details || {};
 
     const now = new Date();
     const dueDate = new Date(now);
     dueDate.setDate(dueDate.getDate() + 5);
 
-    // Build line items from payroll breakdown
-    const lineItems: InvoiceData["lineItems"] = [];
+    // Check for payment splits
+    const { data: splits } = await serviceClient
+      .from("payroll_payment_splits")
+      .select("*, bank_account:bank_accounts(*)")
+      .eq("payroll_record_id", params.id);
 
-    if (employee.service_description) {
-      // Single description line as per contract
-      lineItems.push({
-        description: employee.service_description,
-        amount: record.total_amount,
-      });
-    } else {
-      if (record.prorated_gross > 0) {
-        lineItems.push({
-          description: `Salary for ${MONTHS[period.month - 1]} ${period.year} (${record.days_worked}/${period.working_days} working days)`,
-          amount: record.prorated_gross,
-        });
-      }
+    // Build invoice data for a given amount and bank details
+    const buildInvoiceData = (
+      amount: number,
+      bankInfo: { bank_name?: string; account_number?: string; swift?: string; iban?: string; bank_address?: string },
+      invoiceNumber: string | number
+    ): InvoiceData => {
+      const lineItems: InvoiceData["lineItems"] = [];
 
-      if (record.bonus > 0) {
-        lineItems.push({
-          description: record.bonus_note ? `Bonus: ${record.bonus_note}` : "Bonus",
-          amount: record.bonus,
-        });
-      }
-      if (record.compensation_amount > 0) {
-        lineItems.push({ description: "Compensation", amount: record.compensation_amount });
-      }
-
-      if (lineItems.length === 0) {
+      if (employee.service_description) {
+        lineItems.push({ description: employee.service_description, amount });
+      } else {
         lineItems.push({
           description: `Services for ${MONTHS[period.month - 1]} ${period.year}`,
-          amount: record.total_amount,
+          amount,
         });
       }
+
+      return {
+        invoiceNumber,
+        agreementDate: employee.contract_date ? formatDate(new Date(employee.contract_date)) : formatDate(now),
+        invoiceDate: shortDate(now),
+        dueDate: shortDate(dueDate),
+        totalAmount: amount,
+        entity: employee.entity || "US",
+        supplier: {
+          fullName: `${employee.first_name} ${employee.last_name}`,
+          legalAddress: employee.legal_address || undefined,
+          iban: bankInfo.iban || undefined,
+          bankAccount: bankInfo.account_number || undefined,
+          bankName: bankInfo.bank_name || undefined,
+          bankAddress: bankInfo.bank_address || undefined,
+          swift: bankInfo.swift || undefined,
+          email: employee.personal_email || employee.email,
+        },
+        lineItems,
+      };
     }
 
-    // Generate invoice number: prefix-seq or fallback to record ID
-    let invoiceNumber: string | number = record.id.slice(0, 6).toUpperCase();
+    // Generate invoice number base
+    let invoiceNumberBase: string | number = record.id.slice(0, 6).toUpperCase();
+    let seq = employee.invoice_number_seq || 1;
     if (employee.invoice_number_prefix) {
-      const seq = employee.invoice_number_seq || 1;
-      invoiceNumber = `${employee.invoice_number_prefix}-${String(seq).padStart(3, "0")}`;
-      // Increment the sequence for next time
-      await serviceClient
-        .from("profiles")
-        .update({ invoice_number_seq: seq + 1 })
-        .eq("id", employee.id);
+      invoiceNumberBase = employee.invoice_number_prefix;
     }
 
-    const invoiceData: InvoiceData = {
-      invoiceNumber,
-      agreementDate: employee.contract_date ? formatDate(new Date(employee.contract_date)) : formatDate(now),
-      invoiceDate: shortDate(now),
-      dueDate: shortDate(dueDate),
-      totalAmount: record.total_amount,
-      entity: employee.entity || "US",
-      supplier: {
-        fullName: `${employee.first_name} ${employee.last_name}`,
-        legalAddress: employee.legal_address || undefined,
-        iban: bank.iban || undefined,
-        bankAccount: bank.account_number || undefined,
-        bankName: bank.bank_name || undefined,
-        bankAddress: bank.bank_address || undefined,
-        swift: bank.swift || undefined,
-        email: employee.personal_email || employee.email,
-      },
-      lineItems,
-    };
+    const hasSplits = splits && splits.length > 1;
 
+    if (hasSplits) {
+      // Multiple splits → generate one PDF per split, return as ZIP
+      const zip = new JSZip();
+
+      for (let i = 0; i < splits.length; i++) {
+        const split = splits[i];
+        const bankAccount = split.bank_account || {};
+        const invoiceNumber = employee.invoice_number_prefix
+          ? `${invoiceNumberBase}-${String(seq).padStart(3, "0")}`
+          : `${invoiceNumberBase}-${i + 1}`;
+
+        const invoiceData = buildInvoiceData(split.amount, bankAccount, invoiceNumber);
+        const pdfBuffer = await generateInvoicePdf(invoiceData);
+        const label = (bankAccount.label || `Bank${i + 1}`).replace(/[^a-zA-Z0-9]/g, "_");
+        const filename = `${employee.last_name}_${MONTHS[period.month - 1]}_${period.year}_${label}.pdf`;
+        zip.file(filename, pdfBuffer);
+
+        if (employee.invoice_number_prefix) seq++;
+      }
+
+      // Update invoice sequence
+      if (employee.invoice_number_prefix) {
+        await serviceClient.from("profiles").update({ invoice_number_seq: seq }).eq("id", employee.id);
+      }
+
+      const zipBuffer = await zip.generateAsync({ type: "uint8array" });
+      const zipFilename = `invoices_${employee.last_name}_${MONTHS[period.month - 1]}_${period.year}.zip`;
+
+      // Mark as downloaded
+      await serviceClient
+        .from("payroll_records")
+        .update({ downloaded_at: new Date().toISOString() })
+        .eq("id", params.id)
+        .is("downloaded_at", null);
+
+      return new NextResponse(Buffer.from(zipBuffer), {
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${zipFilename}"`,
+        },
+      });
+    }
+
+    // Single split or no splits → single PDF
+    const bankInfo = splits && splits.length === 1
+      ? splits[0].bank_account || employee.bank_details || {}
+      : employee.bank_details || {};
+    const amount = splits && splits.length === 1 ? splits[0].amount : record.total_amount;
+
+    const invoiceNumber = employee.invoice_number_prefix
+      ? `${invoiceNumberBase}-${String(seq).padStart(3, "0")}`
+      : invoiceNumberBase;
+
+    if (employee.invoice_number_prefix) {
+      await serviceClient.from("profiles").update({ invoice_number_seq: seq + 1 }).eq("id", employee.id);
+    }
+
+    const invoiceData = buildInvoiceData(amount, bankInfo, invoiceNumber);
     const pdfBuffer = await generateInvoicePdf(invoiceData);
-
     const filename = `invoice_${employee.last_name}_${MONTHS[period.month - 1]}_${period.year}.pdf`;
 
-    // Upload to Google Drive (fire-and-forget, don't block PDF response)
+    // Upload to Google Drive (fire-and-forget)
     uploadPdfToDrive(pdfBuffer, filename, {
       year: period.year,
       month: period.month,

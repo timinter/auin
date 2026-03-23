@@ -10,20 +10,17 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const employeeId = url.searchParams.get("employee_id");
 
-    // Validate UUID format if provided
-    if (employeeId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeId)) {
-      return NextResponse.json({ error: "Invalid employee_id format" }, { status: 400 });
+    if (!employeeId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeId)) {
+      return NextResponse.json({ error: "Valid employee_id is required" }, { status: 400 });
     }
 
-    let query = serviceClient
-      .from("payment_splits")
-      .select("*, profile:profiles(first_name, last_name, email)")
+    const { data, error } = await serviceClient
+      .from("bank_accounts")
+      .select("*")
+      .eq("profile_id", employeeId)
       .order("sort_order");
 
-    if (employeeId) query = query.eq("profile_id", employeeId);
-
-    const { data, error } = await query;
-    if (error) return NextResponse.json({ error: "Operation failed" }, { status: 400 });
+    if (error) return NextResponse.json({ error: "Failed to load bank accounts" }, { status: 400 });
     return NextResponse.json(data);
   } catch (err) {
     console.error(err);
