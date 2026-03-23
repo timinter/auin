@@ -51,7 +51,7 @@ export default function DashboardLayout({
               className="w-64 h-full bg-background"
               onClick={(e) => e.stopPropagation()}
             >
-              <Sidebar role={profile.role} />
+              <Sidebar role={profile.role} mobile onNavigate={() => setMobileMenuOpen(false)} />
             </div>
           </div>
         )}

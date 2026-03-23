@@ -72,6 +72,8 @@ function getNavItems(role: UserRole): NavItem[] {
 
 interface SidebarProps {
   role: UserRole;
+  mobile?: boolean;
+  onNavigate?: () => void;
 }
 
 function ByFlag({ className }: { className?: string }) {
@@ -111,13 +113,13 @@ const ENTITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   CRYPTO: CryptoIcon,
 };
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, mobile, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const items = getNavItems(role);
   const { entity, setEntity } = useEntity();
 
   return (
-    <aside className="hidden md:flex md:flex-col md:w-64 md:min-h-screen border-r bg-muted/40">
+    <aside className={mobile ? "flex flex-col w-64 min-h-screen border-r bg-muted/40" : "hidden md:flex md:flex-col md:w-64 md:min-h-screen border-r bg-muted/40"}>
       <div className="p-6">
         <Link href="/dashboard" className="flex items-center gap-2">
           <span className="text-xl font-bold">SAMAP</span>
@@ -161,6 +163,7 @@ export function Sidebar({ role }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
