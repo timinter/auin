@@ -18,7 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDisplayDate } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { PageSpinner } from "@/components/spinner";
 import { ENTITIES, ENTITY_LABELS } from "@/lib/hooks/use-entity";
@@ -422,11 +422,11 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-semibold">{formatCurrency(c.gross_salary)}</TableCell>
-                      <TableCell>{c.effective_from}</TableCell>
-                      <TableCell>{c.effective_to || "—"}</TableCell>
+                      <TableCell>{formatDisplayDate(c.effective_from)}</TableCell>
+                      <TableCell>{c.effective_to ? formatDisplayDate(c.effective_to) : "—"}</TableCell>
                       <TableCell>
                         {isTerminated ? (
-                          <Badge variant="destructive">Terminated {c.terminated_at}</Badge>
+                          <Badge variant="destructive">Terminated {formatDisplayDate(c.terminated_at!)}</Badge>
                         ) : isActive ? (
                           <Badge variant="success">Active</Badge>
                         ) : (
@@ -464,7 +464,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                 <p className="text-sm font-medium text-muted-foreground">Notes</p>
                 {contracts.filter((c) => c.notes).map((c) => (
                   <div key={c.id} className="text-sm bg-muted/50 rounded p-2">
-                    <span className="font-medium">{c.effective_from}:</span> {c.notes}
+                    <span className="font-medium">{formatDisplayDate(c.effective_from)}:</span> {c.notes}
                   </div>
                 ))}
               </div>
@@ -547,8 +547,8 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                   <TableRow key={r.id}>
                     <TableCell>{r.project?.name}</TableCell>
                     <TableCell>{formatCurrency(r.hourly_rate)}/hr</TableCell>
-                    <TableCell>{r.effective_from}</TableCell>
-                    <TableCell>{r.effective_to || <Badge variant="success">Current</Badge>}</TableCell>
+                    <TableCell>{formatDisplayDate(r.effective_from)}</TableCell>
+                    <TableCell>{r.effective_to ? formatDisplayDate(r.effective_to) : <Badge variant="success">Current</Badge>}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button
                         size="sm"

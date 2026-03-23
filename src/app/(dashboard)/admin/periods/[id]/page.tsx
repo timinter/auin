@@ -20,7 +20,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { X, Lock, LockOpen, Download, Pencil, Send, CheckCircle, XCircle, Plus } from "lucide-react";
 import { PageSpinner, Spinner } from "@/components/spinner";
-import { formatPeriod, formatCurrency, getApiError } from "@/lib/utils";
+import { formatPeriod, formatCurrency, formatDisplayDate, getApiError } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 
 type EditableFields = {
@@ -738,7 +738,7 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
                               <div className="flex items-center gap-1.5">
                                 <Badge variant={statusVariant(r.status)}>{r.status.replace("_", " ")}</Badge>
                                 {r.downloaded_at && (
-                                  <span className="text-muted-foreground" title={`Downloaded ${new Date(r.downloaded_at).toLocaleDateString()}`}>
+                                  <span className="text-muted-foreground" title={`Downloaded ${formatDisplayDate(r.downloaded_at)}`}>
                                     <Download className="h-3.5 w-3.5" />
                                   </span>
                                 )}

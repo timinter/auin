@@ -37,6 +37,7 @@ export default function UsersPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<string>("employee");
+  const [inviteEntity, setInviteEntity] = useState<string>(entity);
   const [inviting, setInviting] = useState(false);
   const [roleTab, setRoleTab] = useState<"employee" | "freelancer">("employee");
   const [search, setSearch] = useState("");
@@ -118,13 +119,14 @@ export default function UsersPage() {
       const res = await fetch("/api/admin/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole, entity }),
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole, entity: inviteEntity }),
       });
       if (res.ok) {
         const data = await res.json();
         toast({ title: "Invitation sent", description: `Link: ${data.inviteLink}` });
         setInviteOpen(false);
         setInviteEmail("");
+        setInviteEntity(entity);
       } else {
         const errMsg = await getApiError(res);
         toast({ title: "Error", description: errMsg, variant: "destructive" });
@@ -158,7 +160,7 @@ export default function UsersPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Invite User</DialogTitle>
-              <DialogDescription>Send an invitation to join the {ENTITY_LABELS[entity]} space.</DialogDescription>
+              <DialogDescription>Send an invitation to join SAMAP.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -181,6 +183,19 @@ export default function UsersPage() {
                     <SelectItem value="employee">Employee</SelectItem>
                     <SelectItem value="freelancer">Freelancer</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="entity">Entity</Label>
+                <Select value={inviteEntity} onValueChange={setInviteEntity}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(ENTITY_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { formatPeriod, getApiError } from "@/lib/utils";
+import { formatPeriod, formatDisplayDate, getApiError } from "@/lib/utils";
 import { PageSpinner } from "@/components/spinner";
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {
@@ -168,7 +168,7 @@ export default function AdminLeavesPage() {
                       {leave.period ? formatPeriod(leave.period.year, leave.period.month) : "—"}
                     </TableCell>
                     <TableCell>{LEAVE_TYPE_LABELS[leave.leave_type] || leave.leave_type}</TableCell>
-                    <TableCell className="whitespace-nowrap">{leave.start_date} — {leave.end_date}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDisplayDate(leave.start_date)} — {formatDisplayDate(leave.end_date)}</TableCell>
                     <TableCell className="text-right">{leave.days_count}</TableCell>
                     <TableCell className="max-w-48 truncate">{leave.reason || "—"}</TableCell>
                     <TableCell>

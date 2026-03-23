@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { formatCurrency, formatPeriod, getApiError } from "@/lib/utils";
+import { formatCurrency, formatPeriod, formatDisplayDate, getApiError } from "@/lib/utils";
 import { PageSpinner, Spinner } from "@/components/spinner";
 import { Calculator } from "lucide-react";
 
@@ -212,7 +212,7 @@ export default function AdminReceiptsPage() {
                       {comp.period ? formatPeriod(comp.period.year, comp.period.month) : "—"}
                     </TableCell>
                     <TableCell>{comp.category?.label || "—"}</TableCell>
-                    <TableCell>{comp.receipt_date || "—"}</TableCell>
+                    <TableCell>{comp.receipt_date ? formatDisplayDate(comp.receipt_date) : "—"}</TableCell>
                     <TableCell className="text-right">{comp.submitted_amount} {comp.submitted_currency || "BYN"}</TableCell>
                     <TableCell className="text-right">
                       {comp.status === "pending" ? (

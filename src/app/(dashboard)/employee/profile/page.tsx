@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormField, clearFieldError } from "@/components/ui/form-field";
 import { useToast } from "@/components/ui/use-toast";
-import { formatCurrency, getApiError } from "@/lib/utils";
+import { formatCurrency, formatDisplayDate, getApiError } from "@/lib/utils";
 import { PageSpinner } from "@/components/spinner";
 import { Plus, Trash2 } from "lucide-react";
 
@@ -125,7 +125,7 @@ export default function EmployeeProfilePage() {
           <div className="flex justify-between"><span className="text-muted-foreground">Department</span><span>{profile.department || "—"}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Payment Channel</span><span>{profile.payment_channel || "—"}</span></div>
           {profile.contract_start_date && (
-            <div className="flex justify-between"><span className="text-muted-foreground">Contract Start</span><span>{profile.contract_start_date}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Contract Start</span><span>{formatDisplayDate(profile.contract_start_date)}</span></div>
           )}
           {profile.service_description && (
             <div className="flex justify-between"><span className="text-muted-foreground">Service Description</span><span className="text-right max-w-[60%]">{profile.service_description}</span></div>
@@ -159,8 +159,8 @@ export default function EmployeeProfilePage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-semibold">{formatCurrency(c.gross_salary)}</TableCell>
-                      <TableCell>{c.effective_from}</TableCell>
-                      <TableCell>{c.effective_to || "—"}</TableCell>
+                      <TableCell>{formatDisplayDate(c.effective_from)}</TableCell>
+                      <TableCell>{c.effective_to ? formatDisplayDate(c.effective_to) : "—"}</TableCell>
                       <TableCell>
                         {isTerminated ? (
                           <Badge variant="destructive">Terminated</Badge>

@@ -7,7 +7,7 @@ import type { EmployeeContract } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDisplayDate } from "@/lib/utils";
 import { PageSpinner } from "@/components/spinner";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
@@ -37,12 +37,7 @@ export default function SalaryHistoryPage() {
     (c) => !c.effective_to && !c.terminated_at
   );
 
-  const formatDate = (d: string) =>
-    new Date(d + "T00:00:00").toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+  const formatDate = formatDisplayDate;
 
   const getStatus = (c: EmployeeContract) => {
     if (c.terminated_at) return "terminated";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatCurrency, getMonthName, formatPeriod, formatZodErrors, getInvoiceFileName } from "../utils";
+import { formatCurrency, getMonthName, formatPeriod, formatZodErrors, getInvoiceFileName, formatDisplayDate, formatDisplayDateTime } from "../utils";
 import { ZodError, ZodIssue } from "zod";
 
 describe("formatCurrency", () => {
@@ -92,5 +92,35 @@ describe("getInvoiceFileName", () => {
 
   it("handles different months", () => {
     expect(getInvoiceFileName("Doe", 12, 2025)).toBe("Doe_December_2025.pdf");
+  });
+});
+
+describe("formatDisplayDate", () => {
+  it("formats YYYY-MM-DD as DD/MM/YYYY", () => {
+    expect(formatDisplayDate("2026-03-05")).toBe("05/03/2026");
+  });
+
+  it("formats single-digit day and month with leading zeros", () => {
+    expect(formatDisplayDate("2026-01-09")).toBe("09/01/2026");
+  });
+
+  it("formats ISO datetime string", () => {
+    expect(formatDisplayDate("2026-12-25T14:30:00.000Z")).toMatch(/^25\/12\/2026$/);
+  });
+
+  it("formats end-of-year date", () => {
+    expect(formatDisplayDate("2025-12-31")).toBe("31/12/2025");
+  });
+});
+
+describe("formatDisplayDateTime", () => {
+  it("formats datetime as DD/MM/YYYY HH:MM", () => {
+    const result = formatDisplayDateTime("2026-03-23T09:05:00");
+    expect(result).toBe("23/03/2026 09:05");
+  });
+
+  it("pads single-digit hours and minutes", () => {
+    const result = formatDisplayDateTime("2026-01-01T03:07:00");
+    expect(result).toBe("01/01/2026 03:07");
   });
 });

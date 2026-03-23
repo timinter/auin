@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Spinner } from "@/components/spinner";
+import { formatDisplayDateTime } from "@/lib/utils";
 
 export default function AuditLogPage() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
@@ -54,7 +55,7 @@ export default function AuditLogPage() {
           ) : entries.map((entry) => (
             <TableRow key={entry.id}>
               <TableCell className="text-xs whitespace-nowrap">
-                {new Date(entry.created_at).toLocaleString()}
+                {formatDisplayDateTime(entry.created_at)}
               </TableCell>
               <TableCell>
                 {entry.user ? `${entry.user.first_name} ${entry.user.last_name}` : "System"}
