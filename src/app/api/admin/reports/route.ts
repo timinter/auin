@@ -96,7 +96,8 @@ export async function GET(request: Request) {
       grand,
       exchange_rates: rates || [],
     });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -41,7 +41,8 @@ export async function POST(request: Request) {
 
     if (error) return NextResponse.json({ error: "Failed to create contract" }, { status: 400 });
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

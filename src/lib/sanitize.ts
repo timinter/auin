@@ -53,3 +53,18 @@ export function normalizeIban(value: string): string {
 export function normalizeSwift(value: string): string {
   return value.replace(/\s/g, "").toUpperCase();
 }
+
+/** Escape a value for safe CSV output (prevents formula injection) */
+export function csvSafe(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  // If it starts with a formula trigger character, prefix with a tab to neutralize
+  if (/^[=+\-@\t\r]/.test(str)) {
+    return `"\t${str.replace(/"/g, '""')}"`;
+  }
+  // If it contains commas, quotes, or newlines, wrap in quotes
+  if (/[,"\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}

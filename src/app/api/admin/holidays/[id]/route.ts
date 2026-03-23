@@ -22,7 +22,8 @@ export async function DELETE(
 
     if (error) return NextResponse.json({ error: "Failed to delete holiday" }, { status: 400 });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

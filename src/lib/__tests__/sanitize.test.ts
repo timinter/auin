@@ -9,6 +9,7 @@ import {
   isValidMoneyAmount,
   normalizeIban,
   normalizeSwift,
+  csvSafe,
 } from "../sanitize";
 
 describe("sanitizeText", () => {
@@ -185,5 +186,83 @@ describe("normalizeIban", () => {
 describe("normalizeSwift", () => {
   it("strips spaces and uppercases", () => {
     expect(normalizeSwift("deut deff")).toBe("DEUTDEFF");
+  });
+});
+
+describe("receipt path validation pattern", () => {
+  // This regex is used in /api/admin/receipt-url to prevent path traversal
+  const safePathPattern = /^[a-f0-9\-]{36}\/[a-zA-Z0-9_\-]+\.[a-zA-Z0-9]+$/;
+
+  it("accepts valid uuid/filename.ext", () => {
+    expect(safePathPattern.test("550e8400-e29b-41d4-a716-446655440000/receipt_123.pdf")).toBe(true);
+  });
+
+  it("accepts uuid/filename with jpg", () => {
+    expect(safePathPattern.test("550e8400-e29b-41d4-a716-446655440000/photo.jpg")).toBe(true);
+  });
+
+  it("rejects path traversal with ..", () => {
+    expect(safePathPattern.test("../../../etc/passwd")).toBe(false);
+  });
+
+  it("rejects path traversal embedded in valid-looking path", () => {
+    expect(safePathPattern.test("550e8400-e29b-41d4-a716-446655440000/../secret.pdf")).toBe(false);
+  });
+
+  it("rejects absolute paths", () => {
+    expect(safePathPattern.test("/etc/passwd")).toBe(false);
+  });
+
+  it("rejects paths without uuid prefix", () => {
+    expect(safePathPattern.test("some-folder/file.pdf")).toBe(false);
+  });
+
+  it("rejects empty string", () => {
+    expect(safePathPattern.test("")).toBe(false);
+  });
+});
+
+describe("csvSafe", () => {
+  it("returns empty string for null/undefined", () => {
+    expect(csvSafe(null)).toBe("");
+    expect(csvSafe(undefined)).toBe("");
+  });
+
+  it("passes through plain strings unchanged", () => {
+    expect(csvSafe("John Doe")).toBe("John Doe");
+    expect(csvSafe("12345")).toBe("12345");
+  });
+
+  it("neutralizes = prefix (formula injection)", () => {
+    expect(csvSafe("=CMD('calc')")).toBe('"\t=CMD(\'calc\')"');
+  });
+
+  it("neutralizes + prefix", () => {
+    expect(csvSafe("+1234")).toBe('"\t+1234"');
+  });
+
+  it("neutralizes - prefix", () => {
+    expect(csvSafe("-1+1")).toBe('"\t-1+1"');
+  });
+
+  it("neutralizes @ prefix", () => {
+    expect(csvSafe("@SUM(A1:A10)")).toBe('"\t@SUM(A1:A10)"');
+  });
+
+  it("wraps values containing commas in quotes", () => {
+    expect(csvSafe("hello, world")).toBe('"hello, world"');
+  });
+
+  it("escapes double quotes inside values", () => {
+    expect(csvSafe('say "hi"')).toBe('"say ""hi"""');
+  });
+
+  it("handles numbers", () => {
+    expect(csvSafe(42)).toBe("42");
+    expect(csvSafe(0)).toBe("0");
+  });
+
+  it("handles newlines", () => {
+    expect(csvSafe("line1\nline2")).toBe('"line1\nline2"');
   });
 });

@@ -12,6 +12,19 @@ export async function GET(request: Request) {
     const status = url.searchParams.get("status");
     const entity = url.searchParams.get("entity");
 
+    // Validate query params
+    if (periodId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(periodId)) {
+      return NextResponse.json({ error: "Invalid period_id format" }, { status: 400 });
+    }
+    const validStatuses = ["all", "pending", "approved", "rejected"];
+    if (status && !validStatuses.includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+    const validEntities = ["BY", "US", "CRYPTO"];
+    if (entity && !validEntities.includes(entity)) {
+      return NextResponse.json({ error: "Invalid entity" }, { status: 400 });
+    }
+
     let query = serviceClient
       .from("leave_requests")
       .select("*, employee:profiles!employee_id(*), period:payroll_periods(*), reviewer:profiles!reviewed_by(first_name, last_name)")
@@ -29,14 +42,15 @@ export async function GET(request: Request) {
 
     // Filter by entity client-side if needed
     const filtered = entity
-      ? (data || []).filter((l: Record<string, unknown>) => {
+      ? (data || []).filter((l) => {
           const emp = l.employee as { entity?: string } | null;
           return emp?.entity === entity;
         })
       : data;
 
     return NextResponse.json(filtered);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

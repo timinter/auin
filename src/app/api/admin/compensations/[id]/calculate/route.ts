@@ -111,6 +111,7 @@ export async function GET(
       taxRate,
     });
   } catch (err) {
+    console.error(err);
     const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }

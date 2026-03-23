@@ -66,7 +66,8 @@ export async function GET(request: Request) {
         totalHoursLogged = hours;
         jiraAvailable = true;
       }
-    } catch {
+    } catch (err) {
+      console.error(err);
       // Jira not configured — return calculation with 0 hours
     }
 
@@ -81,7 +82,8 @@ export async function GET(request: Request) {
       totalHoursLogged,
       ...result,
     });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
