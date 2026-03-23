@@ -223,3 +223,40 @@ export const reviewLeaveSchema = z.object({
 export const rejectInvoiceSchema = z.object({
   rejection_reason: safeText(1000).pipe(z.string().min(1, "Rejection reason is required")),
 });
+
+export const bankAccountSchema = z.object({
+  label: safeName(50).pipe(z.string().min(1, "Label is required")),
+  bank_name: z.string().max(100).transform(sanitizeText).optional().default(""),
+  account_number: z.string().max(34)
+    .regex(/^[\d\s\-]*$/, "Only digits, spaces, and dashes allowed")
+    .transform((v) => v.replace(/\s+/g, " ").trim())
+    .optional().default(""),
+  swift: z.string().max(11)
+    .transform((v) => v.replace(/\s/g, "").toUpperCase())
+    .refine((v) => v === "" || /^[A-Z0-9]{8}([A-Z0-9]{3})?$/.test(v), {
+      message: "SWIFT must be 8 or 11 alphanumeric characters",
+    })
+    .optional().default(""),
+  iban: z.string().max(42)
+    .transform((v) => v.replace(/\s/g, "").toUpperCase())
+    .refine((v) => v === "" || /^[A-Z]{2}\d{2}[A-Z0-9]{4,30}$/.test(v), {
+      message: "Invalid IBAN format",
+    })
+    .optional().default(""),
+  routing_number: z.string().max(9)
+    .refine((v) => !v || /^\d{9}$/.test(v), {
+      message: "Routing number must be exactly 9 digits",
+    })
+    .optional().default(""),
+  bank_address: z.string().max(200).transform(sanitizeText).optional().default(""),
+  is_primary: z.boolean().optional().default(false),
+});
+
+export const payrollSplitSchema = z.object({
+  splits: z.array(
+    z.object({
+      bank_account_id: z.string().uuid(),
+      amount: z.number().positive("Amount must be greater than 0").max(999_999.99),
+    })
+  ).min(1, "At least one split is required").max(10),
+});

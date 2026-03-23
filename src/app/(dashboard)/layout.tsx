@@ -48,7 +48,7 @@ export default function DashboardLayout({
             onClick={() => setMobileMenuOpen(false)}
           >
             <div
-              className="w-64 h-full bg-background"
+              className="w-64 h-full bg-background overflow-y-auto shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
               <Sidebar role={profile.role} mobile onNavigate={() => setMobileMenuOpen(false)} />

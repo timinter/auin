@@ -119,7 +119,7 @@ export function Sidebar({ role, mobile, onNavigate }: SidebarProps) {
   const { entity, setEntity } = useEntity();
 
   return (
-    <aside className={mobile ? "flex flex-col w-64 min-h-screen border-r bg-muted/40" : "hidden md:flex md:flex-col md:w-64 md:min-h-screen border-r bg-muted/40"}>
+    <aside className={mobile ? "flex flex-col w-64 min-h-full bg-muted/40" : "hidden md:flex md:flex-col md:w-64 md:min-h-screen border-r bg-muted/40"}>
       <div className="p-6">
         <Link href="/dashboard" className="flex items-center gap-2">
           <span className="text-xl font-bold">SAMAP</span>

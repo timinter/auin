@@ -110,6 +110,7 @@ export interface PayrollRecord {
   // Joined fields
   employee?: Profile;
   period?: PayrollPeriod;
+  payment_splits?: PayrollPaymentSplit[];
 }
 
 export interface Project {
@@ -215,15 +216,31 @@ export interface CorporateHoliday {
   created_at: string;
 }
 
-export interface PaymentSplit {
+export interface BankAccount {
   id: string;
   profile_id: string;
-  payment_channel: PaymentChannel;
-  percentage: number;
-  bank_details: BankDetails | null;
+  label: string;
+  bank_name: string;
+  account_number: string;
+  swift: string;
+  iban: string;
+  routing_number: string;
+  bank_address: string;
+  is_primary: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface PayrollPaymentSplit {
+  id: string;
+  payroll_record_id: string;
+  bank_account_id: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  bank_account?: BankAccount;
 }
 
 export type LeaveType = 'unpaid' | 'sick' | 'vacation';

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useEntity } from "@/lib/hooks/use-entity";
-import type { PayrollPeriod, PayrollRecord, FreelancerInvoice, EmployeeCompensation, CompensationCategory } from "@/types";
+import type { PayrollPeriod, PayrollRecord, FreelancerInvoice, EmployeeCompensation, CompensationCategory, BankAccount } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { X, Lock, LockOpen, Download, Pencil, Send, CheckCircle, XCircle, Plus } from "lucide-react";
+import { X, Lock, LockOpen, Download, Pencil, Send, CheckCircle, XCircle, Plus, Split } from "lucide-react";
 import { PageSpinner, Spinner } from "@/components/spinner";
 import { formatPeriod, formatCurrency, formatDisplayDate, getApiError } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -75,7 +75,80 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
   const [addCompCategories, setAddCompCategories] = useState<CompensationCategory[]>([]);
   const [addCompForm, setAddCompForm] = useState({ employee_id: "", category_id: "", amount: "", approved_amount: "" });
   const [addCompSubmitting, setAddCompSubmitting] = useState(false);
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false);
+  const [splitRecord, setSplitRecord] = useState<PayrollRecord | null>(null);
+  const [splitBanks, setSplitBanks] = useState<BankAccount[]>([]);
+  const [splitRows, setSplitRows] = useState<{ bank_account_id: string; amount: string }[]>([]);
+  const [splitSaving, setSplitSaving] = useState(false);
+  const [splitHasExisting, setSplitHasExisting] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  async function openSplitDialog(record: PayrollRecord) {
+    setSplitRecord(record);
+    setSplitDialogOpen(true);
+    setSplitRows([]);
+
+    // Fetch employee bank accounts
+    const banksRes = await fetch(`/api/admin/bank-accounts?employee_id=${record.employee_id}`);
+    const banks: BankAccount[] = banksRes.ok ? await banksRes.json() : [];
+    setSplitBanks(banks);
+
+    // Fetch existing splits
+    const splitsRes = await fetch(`/api/admin/payroll/${record.id}/splits`);
+    if (splitsRes.ok) {
+      const existing = await splitsRes.json();
+      if (existing.length > 0) {
+        setSplitRows(existing.map((s: { bank_account_id: string; amount: number }) => ({
+          bank_account_id: s.bank_account_id,
+          amount: String(s.amount),
+        })));
+      } else if (banks.length === 1) {
+        // Auto-fill single bank with full amount
+        setSplitRows([{ bank_account_id: banks[0].id, amount: String(record.total_amount) }]);
+      } else if (banks.length > 0) {
+        setSplitRows([{ bank_account_id: banks[0].id, amount: "" }]);
+      }
+    }
+  }
+
+  async function handleSaveSplits() {
+    if (!splitRecord) return;
+    setSplitSaving(true);
+    const splits = splitRows.map((r) => ({
+      bank_account_id: r.bank_account_id,
+      amount: parseFloat(r.amount) || 0,
+    }));
+
+    const res = await fetch(`/api/admin/payroll/${splitRecord.id}/splits`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ splits }),
+    });
+
+    if (res.ok) {
+      toast({ title: "Payment splits saved" });
+      setSplitDialogOpen(false);
+      // Track which records have splits
+      setSplitHasExisting((prev) => new Set([...prev, splitRecord.id]));
+    } else {
+      const errMsg = await getApiError(res);
+      toast({ title: "Error", description: errMsg, variant: "destructive" });
+    }
+    setSplitSaving(false);
+  }
+
+  // Load existing split record IDs on initial data load
+  async function loadSplitStatus(recordIds: string[]) {
+    if (recordIds.length === 0) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("payroll_payment_splits")
+      .select("payroll_record_id")
+      .in("payroll_record_id", recordIds);
+    if (data) {
+      setSplitHasExisting(new Set(data.map((d) => d.payroll_record_id)));
+    }
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -117,6 +190,11 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
       const rates = await rateRes.json();
       const bynRate = rates.find((r: { from_currency: string }) => r.from_currency === "BYN");
       setNbrbRate(bynRate?.rate ?? null);
+    }
+
+    // Load split status for payroll records
+    if (pr && pr.length > 0) {
+      loadSplitStatus(pr.map((r) => r.id));
     }
 
     setLoading(false);
@@ -742,6 +820,15 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
                                     <Download className="h-3.5 w-3.5" />
                                   </span>
                                 )}
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  title="Split payment"
+                                  onClick={() => openSplitDialog(r)}
+                                >
+                                  <Split className={`h-3.5 w-3.5 ${splitHasExisting.has(r.id) ? "text-primary" : "text-muted-foreground"}`} />
+                                </Button>
                               </div>
                             </TableCell>
                           )}
@@ -1065,6 +1152,107 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Payment Split Dialog */}
+      <Dialog open={splitDialogOpen} onOpenChange={setSplitDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Split Payment</DialogTitle>
+            <DialogDescription>
+              {splitRecord?.employee?.first_name} {splitRecord?.employee?.last_name} — Total: {formatCurrency(splitRecord?.total_amount || 0)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {splitBanks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">This employee has no bank accounts configured.</p>
+            ) : (
+              <>
+                {splitRows.map((row, idx) => (
+                  <div key={idx} className="flex items-end gap-2">
+                    <div className="flex-1">
+                      {idx === 0 && <Label className="text-xs">Bank Account</Label>}
+                      <Select
+                        value={row.bank_account_id}
+                        onValueChange={(v) => {
+                          const next = [...splitRows];
+                          next[idx] = { ...next[idx], bank_account_id: v };
+                          setSplitRows(next);
+                        }}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Select bank" /></SelectTrigger>
+                        <SelectContent>
+                          {splitBanks.map((b) => (
+                            <SelectItem key={b.id} value={b.id}>
+                              {b.label}{b.is_primary ? " (Primary)" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-28">
+                      {idx === 0 && <Label className="text-xs">Amount</Label>}
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={row.amount}
+                        onChange={(e) => {
+                          const next = [...splitRows];
+                          next[idx] = { ...next[idx], amount: e.target.value };
+                          setSplitRows(next);
+                        }}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9"
+                      onClick={() => setSplitRows(splitRows.filter((_, i) => i !== idx))}
+                      disabled={splitRows.length <= 1}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+
+                {(() => {
+                  const total = splitRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                  const roundedTotal = Math.round(total * 100) / 100;
+                  const target = splitRecord?.total_amount || 0;
+                  const diff = Math.round((target - roundedTotal) * 100) / 100;
+                  return diff !== 0 && (
+                    <p className={`text-sm ${diff > 0 ? "text-destructive" : "text-destructive"}`}>
+                      {diff > 0 ? `Remaining: ${formatCurrency(diff)}` : `Over by: ${formatCurrency(Math.abs(diff))}`}
+                    </p>
+                  );
+                })()}
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSplitRows([...splitRows, { bank_account_id: splitBanks[0]?.id || "", amount: "" }])}
+                  disabled={splitRows.length >= splitBanks.length}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add Row
+                </Button>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleSaveSplits}
+              disabled={
+                splitSaving ||
+                splitRows.length === 0 ||
+                Math.abs((splitRecord?.total_amount || 0) - splitRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)) > 0.01
+              }
+            >
+              {splitSaving ? "Saving..." : "Save Splits"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={receiptPreviewOpen} onOpenChange={setReceiptPreviewOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh]">
