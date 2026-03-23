@@ -14,6 +14,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Missing path parameter" }, { status: 400 });
     }
 
+    // Prevent path traversal — must be "uuid/filename.ext" with no .. or leading /
+    const safePathPattern = /^[a-f0-9\-]{36}\/[a-zA-Z0-9_\-]+\.[a-zA-Z0-9]+$/;
+    if (!safePathPattern.test(path)) {
+      return NextResponse.json({ error: "Invalid path format" }, { status: 400 });
+    }
+
     const { data, error } = await serviceClient.storage
       .from("freelancer-files")
       .createSignedUrl(path, 3600);
@@ -23,7 +29,8 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ url: data.signedUrl });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

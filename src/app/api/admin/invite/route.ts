@@ -30,7 +30,8 @@ export async function POST(request: Request) {
     if (error) return NextResponse.json({ error: "Failed to create invitation" }, { status: 400 });
 
     return NextResponse.json({ inviteLink: `${env.NEXT_PUBLIC_SITE_URL}/invite/${token}` });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

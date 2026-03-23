@@ -16,6 +16,10 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const year = url.searchParams.get("year");
 
+    if (year && (!/^\d{4}$/.test(year) || +year < 2020 || +year > 2100)) {
+      return NextResponse.json({ error: "Invalid year" }, { status: 400 });
+    }
+
     let query = serviceClient
       .from("corporate_holidays")
       .select("*")
@@ -28,7 +32,8 @@ export async function GET(request: Request) {
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: "Failed to load holidays" }, { status: 400 });
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -58,7 +63,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create holiday" }, { status: 400 });
     }
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

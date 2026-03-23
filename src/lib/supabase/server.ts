@@ -19,7 +19,8 @@ export function createServerSupabaseClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             );
-          } catch {
+          } catch (err) {
+            console.error(err);
             // Cannot set cookies in Server Components — only works in
             // Route Handlers, Server Actions, and Middleware.
           }

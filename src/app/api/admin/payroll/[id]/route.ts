@@ -60,7 +60,8 @@ export async function PATCH(
     });
 
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

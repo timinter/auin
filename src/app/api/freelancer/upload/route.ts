@@ -52,7 +52,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ url: signedUrlData.signedUrl, path: fileName });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

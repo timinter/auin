@@ -53,6 +53,7 @@ export async function GET() {
       hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     });
   } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

@@ -50,13 +50,14 @@ export async function GET(request: Request) {
     if (error) return NextResponse.json({ error: "Failed to load compensations" }, { status: 400 });
 
     // Sort by employee last name
-    const sorted = (data || []).sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-      const aName = (a.employee as Record<string, string>)?.last_name || "";
-      const bName = (b.employee as Record<string, string>)?.last_name || "";
+    const sorted = (data || []).sort((a, b) => {
+      const aName = (a.employee as { last_name?: string })?.last_name || "";
+      const bName = (b.employee as { last_name?: string })?.last_name || "";
       return aName.localeCompare(bName);
     });
     return NextResponse.json(sorted);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -129,7 +130,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

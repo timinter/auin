@@ -43,13 +43,15 @@ export async function GET(request: Request) {
       }
 
       return NextResponse.json({ hours, configured: true });
-    } catch {
+    } catch (err) {
+      console.error(err);
       return NextResponse.json(
         { error: "Failed to fetch Jira worklogs" },
         { status: 502 }
       );
     }
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

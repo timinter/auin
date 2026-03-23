@@ -90,7 +90,8 @@ export async function PATCH(
             yearToDateApproved,
           });
           approvedAmount = result.approvedGross;
-        } catch {
+        } catch (err) {
+          console.error(err);
           approvedAmount = comp.submitted_amount;
         }
       }
@@ -164,7 +165,8 @@ export async function PATCH(
     });
 
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

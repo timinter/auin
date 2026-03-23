@@ -1,5 +1,18 @@
 import { requireRole } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import type { Entity } from "@/types";
+
+interface PayrollWithEmployee {
+  period_id: string;
+  total_amount: number;
+  employee: { entity: Entity }[];
+}
+
+interface InvoiceWithFreelancer {
+  period_id: string;
+  total_amount: number;
+  freelancer: { entity: Entity }[];
+}
 
 /**
  * GET /api/admin/dashboard-trends?entity=US
@@ -16,6 +29,11 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const entity = searchParams.get("entity");
+
+    const validEntities = ["BY", "US", "CRYPTO"];
+    if (entity && !validEntities.includes(entity)) {
+      return NextResponse.json({ error: "Invalid entity" }, { status: 400 });
+    }
 
     // Fetch last 6 periods ordered by date desc
     const { data: periods } = await serviceClient
@@ -44,17 +62,13 @@ export async function GET(request: Request) {
         .in("period_id", periodIds),
     ]);
 
-    let payrollRecords = payrollResult.data || [];
-    let invoices = invoiceResult.data || [];
+    let payrollRecords = (payrollResult.data || []) as PayrollWithEmployee[];
+    let invoices = (invoiceResult.data || []) as InvoiceWithFreelancer[];
 
     // Filter by entity if provided
     if (entity) {
-      payrollRecords = payrollRecords.filter(
-        (r: Record<string, unknown>) => (r.employee as Record<string, unknown>)?.entity === entity
-      );
-      invoices = invoices.filter(
-        (r: Record<string, unknown>) => (r.freelancer as Record<string, unknown>)?.entity === entity
-      );
+      payrollRecords = payrollRecords.filter((r) => r.employee?.[0]?.entity === entity);
+      invoices = invoices.filter((r) => r.freelancer?.[0]?.entity === entity);
     }
 
     // Aggregate by period
@@ -77,7 +91,8 @@ export async function GET(request: Request) {
 
     // Return in chronological order (oldest first)
     return NextResponse.json(trends.reverse());
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

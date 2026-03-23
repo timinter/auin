@@ -29,7 +29,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     if (error) return NextResponse.json({ error: "Failed to update rate" }, { status: 400 });
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -51,7 +52,8 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 
     if (error) return NextResponse.json({ error: "Failed to delete rate" }, { status: 400 });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

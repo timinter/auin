@@ -26,7 +26,8 @@ export async function GET(
 
     if (error) return NextResponse.json({ error: "Contract not found" }, { status: 404 });
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -83,7 +84,8 @@ export async function PATCH(
     });
 
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -139,7 +141,8 @@ export async function POST(
     });
 
     return NextResponse.json(data);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

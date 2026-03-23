@@ -1,5 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { csvSafe } from "@/lib/sanitize";
+import { generatePayrollSchema } from "@/lib/validations";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -12,10 +14,12 @@ export async function POST(request: Request) {
     if (auth.response) return auth.response;
     const { serviceClient } = auth;
 
-    const { period_id, entity } = await request.json();
-    if (!period_id || !entity) {
-      return NextResponse.json({ error: "period_id and entity required" }, { status: 400 });
+    const body = await request.json();
+    const parsed = generatePayrollSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
+    const { period_id, entity } = parsed.data;
 
     const { data: period } = await serviceClient
       .from("payroll_periods")
@@ -30,9 +34,9 @@ export async function POST(request: Request) {
       .eq("period_id", period_id)
       .eq("employee.entity", entity);
 
-    const records = (rawRecords || []).sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-      const aName = (a.employee as Record<string, string>)?.last_name || "";
-      const bName = (b.employee as Record<string, string>)?.last_name || "";
+    const records = (rawRecords || []).sort((a, b) => {
+      const aName = (a.employee as { last_name?: string })?.last_name || "";
+      const bName = (b.employee as { last_name?: string })?.last_name || "";
       return aName.localeCompare(bName);
     });
 
@@ -55,16 +59,16 @@ export async function POST(request: Request) {
     ];
 
     const rows = records.map((r) => [
-      `${r.employee?.first_name} ${r.employee?.last_name}`,
+      csvSafe(`${r.employee?.first_name} ${r.employee?.last_name}`),
       r.gross_salary,
       r.days_worked,
       period.working_days,
       r.prorated_gross,
       r.bonus,
-      `"${(r.bonus_note || "").replace(/"/g, '""')}"`,
+      csvSafe(r.bonus_note || ""),
       r.compensation_amount,
       r.total_amount,
-      r.status,
+      csvSafe(r.status),
     ]);
 
     // Totals row
@@ -91,7 +95,8 @@ export async function POST(request: Request) {
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Export failed" }, { status: 500 });
   }
 }

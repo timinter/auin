@@ -41,13 +41,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // TODO: re-enable time report requirement for production
-    // if (submit && !time_report_url) {
-    //   return NextResponse.json(
-    //     { error: "Please upload a time report before submitting" },
-    //     { status: 400 }
-    //   );
-    // }
+    if (submit && !time_report_url) {
+      return NextResponse.json(
+        { error: "Please upload a time report before submitting" },
+        { status: 400 }
+      );
+    }
 
     // Check submission deadline
     if (submit) {
@@ -217,7 +216,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ id: invoiceId, total_amount: totalAmount });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

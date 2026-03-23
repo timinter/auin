@@ -41,7 +41,8 @@ export async function getApiError(res: Response): Promise<string> {
   try {
     const data = await res.json();
     return data.error || "Something went wrong";
-  } catch {
+  } catch (err) {
+    console.error(err);
     return "Something went wrong";
   }
 }
