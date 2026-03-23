@@ -43,11 +43,11 @@ export async function GET(
       .eq("payroll_record_id", params.id);
 
     // Build invoice data for a given amount and bank details
-    function buildInvoiceData(
+    const buildInvoiceData = (
       amount: number,
       bankInfo: { bank_name?: string; account_number?: string; swift?: string; iban?: string; bank_address?: string },
       invoiceNumber: string | number
-    ): InvoiceData {
+    ): InvoiceData => {
       const lineItems: InvoiceData["lineItems"] = [];
 
       if (employee.service_description) {
@@ -124,7 +124,7 @@ export async function GET(
         .eq("id", params.id)
         .is("downloaded_at", null);
 
-      return new NextResponse(zipBuffer, {
+      return new NextResponse(Buffer.from(zipBuffer), {
         headers: {
           "Content-Type": "application/zip",
           "Content-Disposition": `attachment; filename="${zipFilename}"`,

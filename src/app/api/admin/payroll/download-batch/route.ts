@@ -54,18 +54,18 @@ export async function POST(request: Request) {
       const period = record.period;
       const recordSplits = splitsByRecord.get(record.id) || [];
 
-      function buildLineItems(amount: number): InvoiceData["lineItems"] {
+      const buildLineItems = (amount: number): InvoiceData["lineItems"] => {
         if (employee.service_description) {
           return [{ description: employee.service_description, amount }];
         }
         return [{ description: `Services for ${MONTHS[period.month - 1]} ${period.year}`, amount }];
       }
 
-      function buildInvoice(
+      const buildInvoice = (
         amount: number,
         bankInfo: { bank_name?: string; account_number?: string; swift?: string; iban?: string; bank_address?: string },
         invoiceNumber: string | number
-      ): InvoiceData {
+      ): InvoiceData => {
         return {
           invoiceNumber,
           agreementDate: employee.contract_date ? formatDate(new Date(employee.contract_date)) : formatDate(now),

@@ -129,7 +129,7 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
       toast({ title: "Payment splits saved" });
       setSplitDialogOpen(false);
       // Track which records have splits
-      setSplitHasExisting((prev) => new Set([...prev, splitRecord.id]));
+      setSplitHasExisting((prev) => new Set([...Array.from(prev), splitRecord.id]));
     } else {
       const errMsg = await getApiError(res);
       toast({ title: "Error", description: errMsg, variant: "destructive" });
