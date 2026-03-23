@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { formatCurrency, formatPeriod, getApiError } from "@/lib/utils";
+import { formatCurrency, formatPeriod, formatDisplayDate, getApiError } from "@/lib/utils";
 import { PageSpinner } from "@/components/spinner";
 import { Upload, Trash2, Plus } from "lucide-react";
 
@@ -217,7 +217,7 @@ export default function NewInvoicePage() {
         {selectedPeriod && (() => {
           const p = periods.find((p) => p.id === selectedPeriod);
           return p?.submission_deadline ? (
-            <p className="text-sm text-muted-foreground mt-1">Submission deadline: {p.submission_deadline}</p>
+            <p className="text-sm text-muted-foreground mt-1">Submission deadline: {formatDisplayDate(p.submission_deadline!)}</p>
           ) : null;
         })()}
       </div>

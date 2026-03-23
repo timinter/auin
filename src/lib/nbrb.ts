@@ -15,6 +15,14 @@ export async function fetchNbrbRate(date: string): Promise<{ rate: number; date:
   };
 }
 
+/** Format a local Date as YYYY-MM-DD without timezone shift */
+function localDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /** Get the rate date for a period — last day of month, or today if the month hasn't ended yet */
 export function getRateDate(year: number, month: number): string {
   const lastDay = new Date(year, month, 0); // last day of the month
@@ -23,8 +31,8 @@ export function getRateDate(year: number, month: number): string {
 
   // If the month hasn't ended yet, use today (or yesterday for safety)
   if (lastDay > today) {
-    return today.toISOString().split("T")[0];
+    return localDateStr(today);
   }
 
-  return lastDay.toISOString().split("T")[0];
+  return localDateStr(lastDay);
 }

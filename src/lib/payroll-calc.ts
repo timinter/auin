@@ -20,7 +20,10 @@ export function countWorkingDaysInRange(
   while (d <= end) {
     const dow = d.getDay();
     if (dow !== 0 && dow !== 6) {
-      const ds = d.toISOString().split("T")[0];
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const ds = `${y}-${m}-${day}`;
       if (!holidaySet.has(ds)) count++;
     }
     d.setDate(d.getDate() + 1);
@@ -63,9 +66,15 @@ export function calculateEffectiveGross(
     const overlapEnd = cEnd < pEnd ? cEnd : pEnd;
 
     if (overlapStart <= overlapEnd) {
+      const fmtDate = (dt: Date) => {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, "0");
+        const day = String(dt.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      };
       const segmentWorkingDays = countWorkingDaysInRange(
-        overlapStart.toISOString().split("T")[0],
-        overlapEnd.toISOString().split("T")[0],
+        fmtDate(overlapStart),
+        fmtDate(overlapEnd),
         holidaySet
       );
       if (segmentWorkingDays > 0 && totalWorkingDays > 0) {

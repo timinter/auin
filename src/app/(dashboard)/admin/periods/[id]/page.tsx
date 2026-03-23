@@ -540,8 +540,8 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
           </div>
           <p className="text-muted-foreground">
             {period.working_days} working days
-            {period.submission_deadline && <> &middot; Submit by {period.submission_deadline}</>}
-            {period.payment_deadline && <> &middot; Pay by {period.payment_deadline}</>}
+            {period.submission_deadline && <> &middot; Submit by {formatDisplayDate(period.submission_deadline)}</>}
+            {period.payment_deadline && <> &middot; Pay by {formatDisplayDate(period.payment_deadline)}</>}
 
             <Badge
               variant={nbrbRate ? "secondary" : "warning"}
