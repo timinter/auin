@@ -82,6 +82,10 @@ export default function FreelancerProfilePage() {
 
   async function handleSave() {
     if (!profile) return;
+    if (!personalForm.service_description.trim()) {
+      setFieldErrors({ service_description: "Service description is required for invoice generation" });
+      return;
+    }
     setSaving(true);
     setFieldErrors({});
 
@@ -151,8 +155,8 @@ export default function FreelancerProfilePage() {
           <FormField label="Legal Address" error={fieldErrors.legal_address} onClearError={clearFieldError(setFieldErrors, "legal_address")}>
             <Input value={personalForm.legal_address} onChange={(e) => setPersonalForm({ ...personalForm, legal_address: e.target.value })} placeholder="Your legal address" />
           </FormField>
-          <FormField label="Service Description" error={fieldErrors.service_description} onClearError={clearFieldError(setFieldErrors, "service_description")}>
-            <Textarea value={personalForm.service_description} onChange={(e) => setPersonalForm({ ...personalForm, service_description: e.target.value })} placeholder="Description of services you provide (required for invoice submission)" rows={3} />
+          <FormField label="Service Description *" error={fieldErrors.service_description} onClearError={clearFieldError(setFieldErrors, "service_description")}>
+            <Textarea value={personalForm.service_description} onChange={(e) => setPersonalForm({ ...personalForm, service_description: e.target.value })} placeholder="e.g. Software development services" rows={3} required />
           </FormField>
           <div>
             <FormField label="Invoice Starting Number" error={fieldErrors.invoice_number_seq} onClearError={clearFieldError(setFieldErrors, "invoice_number_seq")}>
