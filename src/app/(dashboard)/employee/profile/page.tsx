@@ -6,6 +6,7 @@ import { useProfile } from "@/lib/hooks/use-profile";
 import type { EmployeeContract, BankAccount } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -33,6 +34,8 @@ export default function EmployeeProfilePage() {
   const [personalForm, setPersonalForm] = useState({
     legal_address: "",
     personal_email: "",
+    service_description: "",
+    invoice_number_seq: 1,
   });
 
   async function loadBankAccounts() {
@@ -45,6 +48,8 @@ export default function EmployeeProfilePage() {
     setPersonalForm({
       legal_address: profile.legal_address || "",
       personal_email: profile.personal_email || "",
+      service_description: profile.service_description || "",
+      invoice_number_seq: profile.invoice_number_seq || 1,
     });
     async function loadData() {
       const supabase = createClient();
@@ -228,6 +233,15 @@ export default function EmployeeProfilePage() {
           <FormField label="Legal Address" error={fieldErrors.legal_address} onClearError={clearFieldError(setFieldErrors, "legal_address")}>
             <Input value={personalForm.legal_address} onChange={(e) => setPersonalForm({ ...personalForm, legal_address: e.target.value })} placeholder="Your legal address" />
           </FormField>
+          <FormField label="Service Description *" error={fieldErrors.service_description} onClearError={clearFieldError(setFieldErrors, "service_description")}>
+            <Textarea value={personalForm.service_description} onChange={(e) => setPersonalForm({ ...personalForm, service_description: e.target.value })} placeholder="e.g. Software development services" rows={2} required />
+          </FormField>
+          <div>
+            <FormField label="Invoice Starting Number" error={fieldErrors.invoice_number_seq} onClearError={clearFieldError(setFieldErrors, "invoice_number_seq")}>
+              <Input type="number" min={1} value={personalForm.invoice_number_seq} onChange={(e) => setPersonalForm({ ...personalForm, invoice_number_seq: parseInt(e.target.value) || 1 })} />
+            </FormField>
+            <p className="text-xs text-muted-foreground mt-1">Your next invoice will be numbered N{personalForm.invoice_number_seq}. It auto-increments after each download.</p>
+          </div>
           <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
         </CardContent>
       </Card>
