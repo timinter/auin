@@ -88,24 +88,20 @@ export async function POST(request: Request) {
       }
 
       let seq = employee.invoice_number_seq || 1;
-      const prefix = employee.invoice_number_prefix;
 
       if (recordSplits.length > 1) {
         // Multiple splits → one PDF per split
         for (let i = 0; i < recordSplits.length; i++) {
           const split = recordSplits[i];
           const bankAccount = split.bank_account || {};
-          const invoiceNumber = prefix
-            ? `${prefix}-${String(seq).padStart(3, "0")}`
-            : `${record.id.slice(0, 6).toUpperCase()}-${i + 1}`;
+          const invoiceNumber = `N${seq}`;
 
           const invoiceData = buildInvoice(split.amount, bankAccount, invoiceNumber);
           const pdfBuffer = await generateInvoicePdf(invoiceData);
           const label = (bankAccount.label || `Bank${i + 1}`).replace(/[^a-zA-Z0-9]/g, "_");
           const filename = `${employee.last_name}_${MONTHS[period.month - 1]}_${period.year}_${label}.pdf`;
           zip.file(filename, pdfBuffer);
-
-          if (prefix) seq++;
+          seq++;
         }
       } else {
         // Single split or no splits → single PDF
@@ -114,9 +110,7 @@ export async function POST(request: Request) {
           : employee.bank_details || {};
         const amount = recordSplits.length === 1 ? recordSplits[0].amount : record.total_amount;
 
-        const invoiceNumber = prefix
-          ? `${prefix}-${String(seq).padStart(3, "0")}`
-          : record.id.slice(0, 6).toUpperCase();
+        const invoiceNumber = `N${seq}`;
 
         const invoiceData = buildInvoice(amount, bankInfo, invoiceNumber);
         const pdfBuffer = await generateInvoicePdf(invoiceData);
@@ -130,13 +124,11 @@ export async function POST(request: Request) {
           entity: employee.entity || "US",
         }).catch((err) => console.error("Drive upload error:", err));
 
-        if (prefix) seq++;
+        seq++;
       }
 
       // Update invoice sequence
-      if (prefix && seq !== (employee.invoice_number_seq || 1)) {
-        await serviceClient.from("profiles").update({ invoice_number_seq: seq }).eq("id", employee.id);
-      }
+      await serviceClient.from("profiles").update({ invoice_number_seq: seq }).eq("id", employee.id);
     }
 
     // Mark records as downloaded
