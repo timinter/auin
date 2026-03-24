@@ -26,7 +26,6 @@ export interface Profile {
   legal_address: string | null;
   personal_email: string | null;
   service_description: string | null;
-  invoice_number_prefix: string | null;
   invoice_number_seq: number;
   contract_date: string | null;
   tax_rate: number;

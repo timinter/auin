@@ -19,6 +19,7 @@ const selfUpdateSchema = z.object({
   signatory_name: z.string().max(100).transform(sanitizeText).transform((v) => v || null).optional(),
   signatory_position: z.string().max(100).transform(sanitizeText).transform((v) => v || null).optional(),
   is_vat_payer: z.boolean().optional(),
+  invoice_number_seq: z.number().int().min(1).max(99_999).optional(),
 });
 
 export async function PATCH(request: Request) {

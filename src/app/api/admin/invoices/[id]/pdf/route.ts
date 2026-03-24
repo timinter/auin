@@ -61,16 +61,13 @@ export async function GET(
       });
     }
 
-    // Generate invoice number: prefix-seq or fallback to invoice ID
-    let invoiceNumber: string | number = invoice.id.slice(0, 6).toUpperCase();
-    if (freelancer.invoice_number_prefix) {
-      const seq = freelancer.invoice_number_seq || 1;
-      invoiceNumber = `${freelancer.invoice_number_prefix}-${String(seq).padStart(3, "0")}`;
-      await serviceClient
-        .from("profiles")
-        .update({ invoice_number_seq: seq + 1 })
-        .eq("id", freelancer.id);
-    }
+    // Generate invoice number — always "N{seq}" format, auto-increment
+    const seq = freelancer.invoice_number_seq || 1;
+    const invoiceNumber = `N${seq}`;
+    await serviceClient
+      .from("profiles")
+      .update({ invoice_number_seq: seq + 1 })
+      .eq("id", freelancer.id);
 
     const invoiceData: InvoiceData = {
       invoiceNumber,

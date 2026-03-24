@@ -80,12 +80,8 @@ export async function GET(
       };
     }
 
-    // Generate invoice number base
-    let invoiceNumberBase: string | number = record.id.slice(0, 6).toUpperCase();
+    // Generate invoice number — always "N{seq}" format, auto-increment
     let seq = employee.invoice_number_seq || 1;
-    if (employee.invoice_number_prefix) {
-      invoiceNumberBase = employee.invoice_number_prefix;
-    }
 
     const hasSplits = splits && splits.length > 1;
 
@@ -96,23 +92,18 @@ export async function GET(
       for (let i = 0; i < splits.length; i++) {
         const split = splits[i];
         const bankAccount = split.bank_account || {};
-        const invoiceNumber = employee.invoice_number_prefix
-          ? `${invoiceNumberBase}-${String(seq).padStart(3, "0")}`
-          : `${invoiceNumberBase}-${i + 1}`;
+        const invoiceNumber = `N${seq}`;
 
         const invoiceData = buildInvoiceData(split.amount, bankAccount, invoiceNumber);
         const pdfBuffer = await generateInvoicePdf(invoiceData);
         const label = (bankAccount.label || `Bank${i + 1}`).replace(/[^a-zA-Z0-9]/g, "_");
         const filename = `${employee.last_name}_${MONTHS[period.month - 1]}_${period.year}_${label}.pdf`;
         zip.file(filename, pdfBuffer);
-
-        if (employee.invoice_number_prefix) seq++;
+        seq++;
       }
 
       // Update invoice sequence
-      if (employee.invoice_number_prefix) {
-        await serviceClient.from("profiles").update({ invoice_number_seq: seq }).eq("id", employee.id);
-      }
+      await serviceClient.from("profiles").update({ invoice_number_seq: seq }).eq("id", employee.id);
 
       const zipBuffer = await zip.generateAsync({ type: "uint8array" });
       const zipFilename = `invoices_${employee.last_name}_${MONTHS[period.month - 1]}_${period.year}.zip`;
@@ -138,13 +129,8 @@ export async function GET(
       : employee.bank_details || {};
     const amount = splits && splits.length === 1 ? splits[0].amount : record.total_amount;
 
-    const invoiceNumber = employee.invoice_number_prefix
-      ? `${invoiceNumberBase}-${String(seq).padStart(3, "0")}`
-      : invoiceNumberBase;
-
-    if (employee.invoice_number_prefix) {
-      await serviceClient.from("profiles").update({ invoice_number_seq: seq + 1 }).eq("id", employee.id);
-    }
+    const invoiceNumber = `N${seq}`;
+    await serviceClient.from("profiles").update({ invoice_number_seq: seq + 1 }).eq("id", employee.id);
 
     const invoiceData = buildInvoiceData(amount, bankInfo, invoiceNumber);
     const pdfBuffer = await generateInvoicePdf(invoiceData);

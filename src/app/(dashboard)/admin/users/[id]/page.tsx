@@ -60,8 +60,6 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
     legal_address: "",
     personal_email: "",
     service_description: "",
-    invoice_number_prefix: "",
-    invoice_number_seq: 1,
     contract_date: "",
   });
 
@@ -91,8 +89,6 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
         legal_address: p.legal_address || "",
         personal_email: p.personal_email || "",
         service_description: p.service_description || "",
-        invoice_number_prefix: p.invoice_number_prefix || "",
-        invoice_number_seq: p.invoice_number_seq || 1,
         contract_date: p.contract_date || "",
       });
 
@@ -341,14 +337,6 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
           <FormField label="Service Description (as per contract)" error={profileErrors.service_description} onClearError={clearFieldError(setProfileErrors, "service_description")}>
             <Textarea value={form.service_description} onChange={(e) => setForm({ ...form, service_description: e.target.value })} placeholder="e.g. Software development services" rows={2} />
           </FormField>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Invoice Number Prefix" error={profileErrors.invoice_number_prefix} onClearError={clearFieldError(setProfileErrors, "invoice_number_prefix")}>
-              <Input value={form.invoice_number_prefix} onChange={(e) => setForm({ ...form, invoice_number_prefix: e.target.value })} placeholder="e.g. INV, IX-US" />
-            </FormField>
-            <FormField label="Invoice Starting Number">
-              <Input type="number" min={1} value={form.invoice_number_seq} onChange={(e) => setForm({ ...form, invoice_number_seq: parseInt(e.target.value) || 1 })} />
-            </FormField>
-          </div>
           <FormField label="Contract Date (Dated)">
             <Input type="date" value={form.contract_date} onChange={(e) => setForm({ ...form, contract_date: e.target.value })} />
           </FormField>

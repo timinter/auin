@@ -42,6 +42,7 @@ export default function FreelancerProfilePage() {
     signatory_name: "",
     signatory_position: "",
     is_vat_payer: false,
+    invoice_number_seq: 1,
   });
 
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function FreelancerProfilePage() {
       signatory_name: profile.signatory_name || "",
       signatory_position: profile.signatory_position || "",
       is_vat_payer: profile.is_vat_payer || false,
+      invoice_number_seq: profile.invoice_number_seq || 1,
     });
     async function loadRates() {
       const supabase = createClient();
@@ -152,6 +154,12 @@ export default function FreelancerProfilePage() {
           <FormField label="Service Description" error={fieldErrors.service_description} onClearError={clearFieldError(setFieldErrors, "service_description")}>
             <Textarea value={personalForm.service_description} onChange={(e) => setPersonalForm({ ...personalForm, service_description: e.target.value })} placeholder="Description of services you provide (required for invoice submission)" rows={3} />
           </FormField>
+          <div>
+            <FormField label="Invoice Starting Number" error={fieldErrors.invoice_number_seq} onClearError={clearFieldError(setFieldErrors, "invoice_number_seq")}>
+              <Input type="number" min={1} value={personalForm.invoice_number_seq} onChange={(e) => setPersonalForm({ ...personalForm, invoice_number_seq: parseInt(e.target.value) || 1 })} placeholder="Next invoice number" />
+            </FormField>
+            <p className="text-xs text-muted-foreground mt-1">Your next invoice will be numbered N{personalForm.invoice_number_seq}. It auto-increments after each download.</p>
+          </div>
           <FormField label="Payment Method">
             <Select value={personalForm.payment_channel} onValueChange={(v) => setPersonalForm({ ...personalForm, payment_channel: v })}>
               <SelectTrigger><SelectValue placeholder="Select payment method" /></SelectTrigger>
