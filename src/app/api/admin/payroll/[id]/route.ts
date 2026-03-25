@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { updatePayrollSchema, uuidParam } from "@/lib/validations";
 import { calculatePayrollTotal } from "@/lib/payroll/calculate";
+import { countWorkingDaysInRange } from "@/lib/payroll-calc";
 import { createAuditLog } from "@/lib/audit";
 import { formatZodErrors } from "@/lib/utils";
 import { NextResponse } from "next/server";
@@ -34,8 +35,24 @@ export async function PATCH(
 
     if (!existing) return NextResponse.json({ error: "Record not found" }, { status: 404 });
 
+    // Compute actual working days (calendar days minus weekends and holidays)
+    const period = existing.period as { year: number; month: number; working_days: number } | null;
+    let actualWorkingDays: number | undefined;
+    if (period) {
+      const pStart = `${period.year}-${String(period.month).padStart(2, "0")}-01`;
+      const lastDay = new Date(period.year, period.month, 0).getDate();
+      const pEnd = `${period.year}-${String(period.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      const { data: holidays } = await serviceClient
+        .from("corporate_holidays")
+        .select("date")
+        .gte("date", pStart)
+        .lte("date", pEnd);
+      const holidaySet = new Set((holidays || []).map((h: { date: string }) => h.date));
+      actualWorkingDays = countWorkingDaysInRange(pStart, pEnd, holidaySet);
+    }
+
     const updates = parsed.data;
-    const { proratedGross, totalAmount } = calculatePayrollTotal(existing, updates);
+    const { proratedGross, totalAmount } = calculatePayrollTotal(existing, updates, actualWorkingDays);
 
     const { data, error } = await serviceClient
       .from("payroll_records")

@@ -3,6 +3,7 @@ import { uuidParam } from "@/lib/validations";
 import { createAuditLog } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
 import { calculateCompensation } from "@/lib/compensation/calculate";
+import { countWorkingDaysInRange } from "@/lib/payroll-calc";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -138,15 +139,29 @@ export async function PATCH(
     // Update the payroll record's compensation_amount
     const { data: payrollRecord } = await serviceClient
       .from("payroll_records")
-      .select("id, gross_salary, days_worked, bonus, compensation_amount, period:payroll_periods(working_days)")
+      .select("id, gross_salary, days_worked, bonus, compensation_amount, adjustment_amount, period:payroll_periods(working_days)")
       .eq("employee_id", comp.employee_id)
       .eq("period_id", comp.period_id)
       .single();
 
     if (payrollRecord) {
-      const workingDays = (payrollRecord.period as unknown as { working_days: number } | null)?.working_days || 1;
+      // Compute actual working days from calendar (minus holidays)
+      const periodData = payrollRecord.period as unknown as { year: number; month: number; working_days: number } | null;
+      let workingDays = periodData?.working_days || 1;
+      if (periodData) {
+        const pStart = `${periodData.year}-${String(periodData.month).padStart(2, "0")}-01`;
+        const lastDay = new Date(periodData.year, periodData.month, 0).getDate();
+        const pEnd = `${periodData.year}-${String(periodData.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+        const { data: holidays } = await serviceClient
+          .from("corporate_holidays")
+          .select("date")
+          .gte("date", pStart)
+          .lte("date", pEnd);
+        const holidaySet = new Set((holidays || []).map((h: { date: string }) => h.date));
+        workingDays = countWorkingDaysInRange(pStart, pEnd, holidaySet);
+      }
       const proratedGross = Math.round((payrollRecord.gross_salary / workingDays) * payrollRecord.days_worked * 100) / 100;
-      const totalAmount = Math.round((proratedGross + payrollRecord.bonus + totalCompensation) * 100) / 100;
+      const totalAmount = Math.round((proratedGross + payrollRecord.bonus + totalCompensation + (payrollRecord.adjustment_amount || 0)) * 100) / 100;
 
       await serviceClient
         .from("payroll_records")

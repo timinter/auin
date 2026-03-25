@@ -88,4 +88,25 @@ describe("calculatePayrollTotal", () => {
     // 5000 + 100 + 50 - 75 = 5075
     expect(totalAmount).toBe(5075);
   });
+
+  it("uses actualWorkingDays override instead of period.working_days", () => {
+    // period says 22, but actual is 20 (2 holidays)
+    const { proratedGross } = calculatePayrollTotal(base, { days_worked: 20 }, 20);
+    // 5000 / 20 * 20 = 5000 (full salary despite fewer days)
+    expect(proratedGross).toBe(5000);
+  });
+
+  it("prorates correctly with holidays reducing working days", () => {
+    // 22 period days, but 2 holidays → 20 actual working days
+    // Employee took 2 leave days → 18 days worked
+    const { proratedGross } = calculatePayrollTotal(base, { days_worked: 18 }, 20);
+    // 5000 / 20 * 18 = 4500
+    expect(proratedGross).toBe(4500);
+  });
+
+  it("without actualWorkingDays falls back to period.working_days", () => {
+    const { proratedGross } = calculatePayrollTotal(base, { days_worked: 11 });
+    // 5000 / 22 * 11 = 2500
+    expect(proratedGross).toBe(2500);
+  });
 });

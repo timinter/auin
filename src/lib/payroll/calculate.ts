@@ -12,13 +12,15 @@ export interface PayrollFields {
 
 /**
  * Calculate prorated gross and total amount for a payroll record.
+ * @param actualWorkingDays - If provided, overrides period.working_days (should be calendar working days minus holidays)
  */
 export function calculatePayrollTotal(
   existing: PayrollFields & { period?: { working_days: number } | null },
-  updates: Partial<PayrollFields>
+  updates: Partial<PayrollFields>,
+  actualWorkingDays?: number
 ): { proratedGross: number; totalAmount: number } {
   const daysWorked = updates.days_worked ?? existing.days_worked;
-  const workingDays = existing.period?.working_days || 1;
+  const workingDays = actualWorkingDays || existing.period?.working_days || 1;
   const grossSalary = existing.gross_salary;
   const proratedGross = Math.round((grossSalary / workingDays) * daysWorked * 100) / 100;
 
