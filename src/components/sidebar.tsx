@@ -19,6 +19,7 @@ import {
   BarChart3,
   CalendarOff,
   ClipboardList,
+  Link2,
 } from "lucide-react";
 
 interface NavItem {
@@ -39,6 +40,7 @@ const adminNav: NavItem[] = [
   { title: "Holidays", href: "/admin/holidays", icon: Clock },
   { title: "Reports", href: "/admin/reports", icon: BarChart3 },
   { title: "Audit Log", href: "/admin/audit-log", icon: ScrollText },
+  { title: "PeopleForce", href: "/admin/peopleforce", icon: Link2 },
 ];
 
 const employeeNav: NavItem[] = [
