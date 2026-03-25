@@ -1,4 +1,4 @@
-const PEOPLEFORCE_API_URL = "https://api.peopleforce.io/api/v2";
+const DEFAULT_API_URL = "https://app.peopleforce.io/api/public/v3";
 
 interface PeopleForceConfig {
   apiKey: string;
@@ -10,7 +10,7 @@ function getConfig(): PeopleForceConfig | null {
   if (!apiKey) return null;
   return {
     apiKey,
-    baseUrl: process.env.PEOPLEFORCE_API_URL || PEOPLEFORCE_API_URL,
+    baseUrl: process.env.PEOPLEFORCE_API_URL || DEFAULT_API_URL,
   };
 }
 
@@ -25,7 +25,7 @@ async function pfFetch<T>(
     const res = await fetch(`${config.baseUrl}${path}`, {
       ...options,
       headers: {
-        "X-API-Key": config.apiKey,
+        "X-API-KEY": config.apiKey,
         "Content-Type": "application/json",
         ...options?.headers,
       },
@@ -43,63 +43,137 @@ async function pfFetch<T>(
   }
 }
 
+// --- Types matching v3 API response shapes ---
+
 export interface PFEmployee {
   id: number;
-  email: string;
+  status: string;
+  full_name: string;
   first_name: string;
   last_name: string;
-  position?: string;
-  department?: { id: number; name: string };
-  hire_date?: string;
-  status?: string;
+  email: string;
+  personal_email: string | null;
+  hired_on: string | null;
+  position: { id: number; name: string } | null;
+  department: { id: number; name: string } | null;
+  location: { id: number; name: string } | null;
+  employment_type: { id: number; name: string } | null;
+}
+
+export interface PFLeaveRequest {
+  id: number;
+  employee_id: number;
+  leave_type_id: number;
+  leave_type: string;
+  state: string;
+  amount: string;
+  tracking_time_in: string;
+  starts_on: string;
+  ends_on: string;
+  comment: string;
+  employee: { id: number; first_name: string; last_name: string; email: string };
+  entries: { date: string; amount: string }[];
+}
+
+export interface PFLeaveBalance {
+  id: number;
+  effective_on: string;
+  balance: number;
+  leave_type_policy: { id: number; name: string };
+  leave_type: { id: number; name: string; unit: string };
+}
+
+interface PFPaginatedResponse<T> {
+  data: T[];
+  metadata: {
+    pagination: {
+      page: number;
+      pages: number;
+      count: number;
+      items: number;
+    };
+  };
 }
 
 interface PFListResponse<T> {
   data: T[];
-  meta: { current_page: number; total_pages: number; total_count: number };
 }
 
+// --- API Functions ---
+
 /**
- * Fetch all employees from PeopleForce.
- * Handles pagination automatically.
+ * Fetch all employees from PeopleForce (paginated).
  */
 export async function fetchEmployees(): Promise<PFEmployee[]> {
   const all: PFEmployee[] = [];
   let page = 1;
 
   while (true) {
-    const result = await pfFetch<PFListResponse<PFEmployee>>(
+    const result = await pfFetch<PFPaginatedResponse<PFEmployee>>(
       `/employees?page=${page}&per_page=100`
     );
     if (!result) break;
 
     all.push(...result.data);
-    if (page >= result.meta.total_pages) break;
+    if (page >= result.metadata.pagination.pages) break;
     page++;
   }
 
   return all;
 }
 
-export interface PFTimeOff {
-  id: number;
-  employee_id: number;
-  start_date: string;
-  end_date: string;
-  days_count: number;
-  status: string;
-  time_off_policy?: { name: string };
+/**
+ * Fetch leave requests from PeopleForce for a date range.
+ * Only fetches approved leaves by default.
+ */
+export async function fetchLeaveRequests(
+  startDate: string,
+  endDate: string,
+  options?: { leaveTypeId?: number; state?: string }
+): Promise<PFLeaveRequest[]> {
+  const all: PFLeaveRequest[] = [];
+  let page = 1;
+  const state = options?.state || "approved";
+
+  while (true) {
+    let path = `/leave_requests?page=${page}&per_page=100&state=${state}`;
+    if (options?.leaveTypeId) path += `&leave_type_id=${options.leaveTypeId}`;
+
+    const result = await pfFetch<PFPaginatedResponse<PFLeaveRequest>>(path);
+    if (!result) break;
+
+    // Filter by date range client-side (API filter unreliable in v3)
+    for (const lr of result.data) {
+      if (lr.ends_on >= startDate && lr.starts_on <= endDate) {
+        all.push(lr);
+      }
+    }
+
+    if (page >= result.metadata.pagination.pages) break;
+    page++;
+  }
+
+  return all;
 }
 
 /**
- * Fetch time-off records for a date range.
+ * Fetch leave balances for a specific employee.
  */
-export async function fetchTimeOffs(
-  startDate: string,
-  endDate: string
-): Promise<PFTimeOff[]> {
-  const result = await pfFetch<PFListResponse<PFTimeOff>>(
-    `/time_offs?start_date=${startDate}&end_date=${endDate}&per_page=200`
+export async function fetchLeaveBalances(
+  employeeId: number
+): Promise<PFLeaveBalance[]> {
+  const result = await pfFetch<PFListResponse<PFLeaveBalance>>(
+    `/employees/${employeeId}/leave_balances`
   );
   return result?.data || [];
 }
+
+/**
+ * Check if PeopleForce is configured.
+ */
+export function isConfigured(): boolean {
+  return getConfig() !== null;
+}
+
+// Exported for testing
+export { getConfig, pfFetch };

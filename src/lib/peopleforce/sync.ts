@@ -1,12 +1,28 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchEmployees, type PFEmployee } from "./client";
 
+/** Map PeopleForce location name to SAMAP entity. */
+export function mapLocationToEntity(locationName: string | undefined): string | null {
+  if (!locationName) return null;
+  const lower = locationName.toLowerCase();
+  if (lower.includes("belarus") || lower.includes("by")) return "BY";
+  if (lower.includes("united states") || lower.includes("us")) return "US";
+  return null;
+}
+
+/** Map PeopleForce status to SAMAP status. */
+export function mapStatus(pfStatus: string | undefined): "active" | "inactive" | null {
+  if (!pfStatus) return null;
+  const lower = pfStatus.toLowerCase();
+  if (lower === "employed" || lower === "probation" || lower === "active") return "active";
+  if (lower === "inactive" || lower === "terminated" || lower === "dismissed") return "inactive";
+  return null;
+}
+
 /**
  * Sync employees from PeopleForce to SAMAP profiles.
- * Only updates department and status for existing users (matched by email).
+ * Matches by email, updates department/status/position/entity/peopleforce_id.
  * Does NOT create new profiles — invitations handle that.
- *
- * Returns the number of profiles updated.
  */
 export async function syncEmployeesFromPeopleForce(
   serviceClient: SupabaseClient
@@ -27,7 +43,7 @@ export async function syncEmployeesFromPeopleForce(
   // Fetch all SAMAP profiles
   const { data: profiles } = await serviceClient
     .from("profiles")
-    .select("id, email, department, status")
+    .select("id, email, department, status, entity, peopleforce_id, contract_start_date")
     .in("role", ["employee", "freelancer"]);
 
   if (!profiles) {
@@ -47,17 +63,31 @@ export async function syncEmployeesFromPeopleForce(
 
     const updates: Record<string, unknown> = {};
 
-    // Sync department if available and different
+    // Store PeopleForce ID
+    if (pfData.id && pfData.id !== profile.peopleforce_id) {
+      updates.peopleforce_id = pfData.id;
+    }
+
+    // Sync department
     if (pfData.department?.name && pfData.department.name !== profile.department) {
       updates.department = pfData.department.name;
     }
 
-    // Sync status (PeopleForce "active"/"inactive" maps directly)
-    if (pfData.status && pfData.status !== profile.status) {
-      const mappedStatus = pfData.status === "active" ? "active" : "inactive";
-      if (mappedStatus !== profile.status) {
-        updates.status = mappedStatus;
-      }
+    // Sync status
+    const mappedStatus = mapStatus(pfData.status);
+    if (mappedStatus && mappedStatus !== profile.status) {
+      updates.status = mappedStatus;
+    }
+
+    // Sync entity from location
+    const mappedEntity = mapLocationToEntity(pfData.location?.name);
+    if (mappedEntity && mappedEntity !== profile.entity) {
+      updates.entity = mappedEntity;
+    }
+
+    // Sync hire date → contract_start_date (only if not already set)
+    if (pfData.hired_on && !profile.contract_start_date) {
+      updates.contract_start_date = pfData.hired_on;
     }
 
     if (Object.keys(updates).length > 0) {

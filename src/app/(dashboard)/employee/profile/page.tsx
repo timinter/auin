@@ -35,7 +35,7 @@ export default function EmployeeProfilePage() {
     legal_address: "",
     personal_email: "",
     service_description: "",
-    invoice_number_seq: 1,
+    invoice_number_seq: "1",
   });
 
   async function loadBankAccounts() {
@@ -49,7 +49,7 @@ export default function EmployeeProfilePage() {
       legal_address: profile.legal_address || "",
       personal_email: profile.personal_email || "",
       service_description: profile.service_description || "",
-      invoice_number_seq: profile.invoice_number_seq || 1,
+      invoice_number_seq: String(profile.invoice_number_seq || 1),
     });
     async function loadData() {
       const supabase = createClient();
@@ -66,13 +66,22 @@ export default function EmployeeProfilePage() {
 
   async function handleSave() {
     if (!profile) return;
+    const errors: Record<string, string> = {};
+    const seqNum = parseInt(personalForm.invoice_number_seq);
+    if (!personalForm.invoice_number_seq || isNaN(seqNum) || seqNum < 1) {
+      errors.invoice_number_seq = "Must be a positive number";
+    }
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
+      return;
+    }
     setSaving(true);
     setFieldErrors({});
 
     const res = await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(personalForm),
+      body: JSON.stringify({ ...personalForm, invoice_number_seq: seqNum }),
     });
 
     if (res.ok) {
@@ -238,7 +247,7 @@ export default function EmployeeProfilePage() {
           </FormField>
           <div>
             <FormField label="Invoice Starting Number" error={fieldErrors.invoice_number_seq} onClearError={clearFieldError(setFieldErrors, "invoice_number_seq")}>
-              <Input type="number" min={1} value={personalForm.invoice_number_seq} onChange={(e) => setPersonalForm({ ...personalForm, invoice_number_seq: parseInt(e.target.value) || 1 })} />
+              <Input type="number" min={1} value={personalForm.invoice_number_seq} onChange={(e) => setPersonalForm({ ...personalForm, invoice_number_seq: e.target.value })} />
             </FormField>
             <p className="text-xs text-muted-foreground mt-1">Your next invoice will be numbered N{personalForm.invoice_number_seq}. It auto-increments after each download.</p>
           </div>

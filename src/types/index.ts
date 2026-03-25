@@ -37,6 +37,7 @@ export interface Profile {
   signatory_name: string | null;
   signatory_position: string | null;
   is_vat_payer: boolean;
+  peopleforce_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -242,7 +243,7 @@ export interface PayrollPaymentSplit {
   bank_account?: BankAccount;
 }
 
-export type LeaveType = 'unpaid' | 'sick' | 'vacation';
+export type LeaveType = 'unpaid' | 'sick' | 'vacation' | 'day_off';
 export type LeaveStatus = 'pending' | 'approved' | 'rejected';
 
 export interface LeaveRequest {
@@ -258,6 +259,8 @@ export interface LeaveRequest {
   reviewed_by: string | null;
   reviewed_at: string | null;
   rejection_reason: string | null;
+  source: string;
+  external_id: string | null;
   created_at: string;
   updated_at: string;
   // Joined

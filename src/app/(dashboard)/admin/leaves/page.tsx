@@ -18,6 +18,7 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
   unpaid: "Unpaid Leave",
   sick: "Sick Leave",
   vacation: "Vacation",
+  day_off: "Day Off",
 };
 
 const statusVariant = (s: string) => {
@@ -39,6 +40,7 @@ export default function AdminLeavesPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [syncing, setSyncing] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -98,6 +100,41 @@ export default function AdminLeavesPage() {
     }
   }
 
+  async function handlePFSync() {
+    if (periodFilter === "all") {
+      toast({ title: "Select a period", description: "Choose a specific period to sync leaves from PeopleForce", variant: "destructive" });
+      return;
+    }
+    const period = periods.find((p) => p.id === periodFilter);
+    if (!period) return;
+
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/admin/peopleforce", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "sync_leaves",
+          period_id: period.id,
+          year: period.year,
+          month: period.month,
+        }),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        toast({ title: "PeopleForce sync complete", description: `Imported: ${result.imported}, Skipped: ${result.skipped}${result.errors.length ? `, Errors: ${result.errors.length}` : ""}` });
+        loadData();
+      } else {
+        toast({ title: "Sync failed", description: await getApiError(res), variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Sync failed", description: "Network error", variant: "destructive" });
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   const pendingCount = leaves.filter((l) => l.status === "pending").length;
 
   return (
@@ -132,6 +169,15 @@ export default function AdminLeavesPage() {
               ))}
           </SelectContent>
         </Select>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePFSync}
+          disabled={syncing || periodFilter === "all"}
+        >
+          {syncing ? "Syncing..." : "Sync from PeopleForce"}
+        </Button>
       </div>
 
       {loading ? (
@@ -171,8 +217,11 @@ export default function AdminLeavesPage() {
                     <TableCell className="whitespace-nowrap">{formatDisplayDate(leave.start_date)} — {formatDisplayDate(leave.end_date)}</TableCell>
                     <TableCell className="text-right">{leave.days_count}</TableCell>
                     <TableCell className="max-w-48 truncate">{leave.reason || "—"}</TableCell>
-                    <TableCell>
+                    <TableCell className="flex items-center gap-1">
                       <Badge variant={statusVariant(leave.status)}>{leave.status}</Badge>
+                      {leave.source === "peopleforce" && (
+                        <Badge variant="outline" className="text-[10px] px-1">PF</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       {leave.status === "pending" && (

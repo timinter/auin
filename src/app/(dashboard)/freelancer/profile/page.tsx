@@ -42,7 +42,7 @@ export default function FreelancerProfilePage() {
     signatory_name: "",
     signatory_position: "",
     is_vat_payer: false,
-    invoice_number_seq: 1,
+    invoice_number_seq: "1",
   });
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function FreelancerProfilePage() {
       signatory_name: profile.signatory_name || "",
       signatory_position: profile.signatory_position || "",
       is_vat_payer: profile.is_vat_payer || false,
-      invoice_number_seq: profile.invoice_number_seq || 1,
+      invoice_number_seq: String(profile.invoice_number_seq || 1),
     });
     async function loadRates() {
       const supabase = createClient();
@@ -82,13 +82,22 @@ export default function FreelancerProfilePage() {
 
   async function handleSave() {
     if (!profile) return;
+    const errors: Record<string, string> = {};
     if (!personalForm.service_description.trim()) {
-      setFieldErrors({ service_description: "Service description is required for invoice generation" });
+      errors.service_description = "Service description is required for invoice generation";
+    }
+    const seqNum = parseInt(personalForm.invoice_number_seq);
+    if (!personalForm.invoice_number_seq || isNaN(seqNum) || seqNum < 1) {
+      errors.invoice_number_seq = "Must be a positive number";
+    }
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
       return;
     }
     setSaving(true);
     setFieldErrors({});
 
+    const profilePayload = { ...personalForm, invoice_number_seq: seqNum };
     const [bankRes, profileRes] = await Promise.all([
       fetch("/api/profile/bank-details", {
         method: "PATCH",
@@ -98,7 +107,7 @@ export default function FreelancerProfilePage() {
       fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(personalForm),
+        body: JSON.stringify(profilePayload),
       }),
     ]);
 
@@ -160,7 +169,7 @@ export default function FreelancerProfilePage() {
           </FormField>
           <div>
             <FormField label="Invoice Starting Number" error={fieldErrors.invoice_number_seq} onClearError={clearFieldError(setFieldErrors, "invoice_number_seq")}>
-              <Input type="number" min={1} value={personalForm.invoice_number_seq} onChange={(e) => setPersonalForm({ ...personalForm, invoice_number_seq: parseInt(e.target.value) || 1 })} placeholder="Next invoice number" />
+              <Input type="number" min={1} value={personalForm.invoice_number_seq} onChange={(e) => setPersonalForm({ ...personalForm, invoice_number_seq: e.target.value })} placeholder="Next invoice number" />
             </FormField>
             <p className="text-xs text-muted-foreground mt-1">Your next invoice will be numbered N{personalForm.invoice_number_seq}. It auto-increments after each download.</p>
           </div>
