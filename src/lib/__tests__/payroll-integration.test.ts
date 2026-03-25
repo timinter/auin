@@ -42,15 +42,16 @@ function simulatePayrollGeneration(params: {
   const daysWorked = Math.max(0, workingDays - leaveDays);
 
   // Step 4 & 5: Prorate and add components (what calculatePayrollTotal does)
+  // Pass actualWorkingDays explicitly to match how the generate route now works
   const record: PayrollFields & { period: { working_days: number } } = {
     days_worked: daysWorked,
     gross_salary: Math.round(grossSalary * 100) / 100,
     bonus,
     compensation_amount: compensationAmount,
     adjustment_amount: adjustmentAmount,
-    period: { working_days: workingDays },
+    period: { working_days: workingDays }, // kept for fallback
   };
-  const { proratedGross, totalAmount } = calculatePayrollTotal(record, {});
+  const { proratedGross, totalAmount } = calculatePayrollTotal(record, {}, workingDays);
 
   return { workingDays, grossSalary: record.gross_salary, daysWorked, proratedGross, totalAmount };
 }

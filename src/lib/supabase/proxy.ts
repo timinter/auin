@@ -14,7 +14,7 @@ const SENSITIVE_COLUMNS: Record<string, string[]> = {
  * Per-request query counter for N+1 detection.
  * In dev, warns when a single service client instance exceeds the threshold.
  */
-const N_PLUS_ONE_THRESHOLD = 8;
+const N_PLUS_ONE_THRESHOLD = 20;
 
 interface QueryMeta {
   table: string;

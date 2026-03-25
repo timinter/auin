@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 import { generatePayrollSchema } from "@/lib/validations";
 import { formatZodErrors } from "@/lib/utils";
-import { calculateEffectiveGross, type ContractRow } from "@/lib/payroll-calc";
+import { calculateEffectiveGross, countWorkingDaysInRange, type ContractRow } from "@/lib/payroll-calc";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -74,6 +74,9 @@ export async function POST(request: Request) {
       (holidaysResult.data || []).map((h: { date: string }) => h.date)
     );
 
+    // Calculate actual working days from calendar (excludes weekends + holidays)
+    const actualWorkingDays = countWorkingDaysInRange(periodStart, periodEnd, holidaySet);
+
     // Aggregate approved leave days per employee
     const leaveDaysByEmployee = new Map<string, number>();
     for (const l of (leavesResult.data || [])) {
@@ -103,7 +106,7 @@ export async function POST(request: Request) {
         empContracts,
         periodStart,
         periodEnd,
-        period.working_days,
+        actualWorkingDays,
         holidaySet
       );
 
@@ -113,8 +116,8 @@ export async function POST(request: Request) {
       }
 
       const leaveDays = leaveDaysByEmployee.get(emp.id) || 0;
-      const daysWorked = Math.max(0, period.working_days - leaveDays);
-      const proratedGross = (grossSalary / period.working_days) * daysWorked;
+      const daysWorked = Math.max(0, actualWorkingDays - leaveDays);
+      const proratedGross = (grossSalary / actualWorkingDays) * daysWorked;
 
       records.push({
         period_id,

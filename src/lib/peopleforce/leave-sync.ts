@@ -102,46 +102,31 @@ export async function syncLeavesFromPeopleForce(
 
   const existingSet = new Set((existing || []).map((e: { external_id: string }) => e.external_id));
 
-  let imported = 0;
   let skipped = 0;
   const errors: string[] = [];
+
+  // Build batch of rows to insert
+  const rowsToInsert: Record<string, unknown>[] = [];
 
   for (const pfLeave of pfLeaves) {
     const externalId = `pf_${pfLeave.id}`;
 
-    // Skip duplicates
-    if (existingSet.has(externalId)) {
-      skipped++;
-      continue;
-    }
+    if (existingSet.has(externalId)) { skipped++; continue; }
 
-    // Map leave type
     const leaveType = mapLeaveType(pfLeave.leave_type_id);
-    if (!leaveType) {
-      skipped++;
-      continue;
-    }
+    if (!leaveType) { skipped++; continue; }
 
-    // Find matching SAMAP employee
     const email = pfLeave.employee.email.toLowerCase();
     const profile = profileByEmail.get(email);
-    if (!profile) {
-      skipped++;
-      continue;
-    }
+    if (!profile) { skipped++; continue; }
 
-    // Calculate working days in this month for the leave
     const daysCount = countDaysInMonth(pfLeave.starts_on, pfLeave.ends_on, year, month);
-    if (daysCount === 0) {
-      skipped++;
-      continue;
-    }
+    if (daysCount === 0) { skipped++; continue; }
 
-    // Clamp dates to month boundaries for SAMAP
     const clampedStart = pfLeave.starts_on < startDate ? startDate : pfLeave.starts_on;
     const clampedEnd = pfLeave.ends_on > endDate ? endDate : pfLeave.ends_on;
 
-    const { error } = await serviceClient.from("leave_requests").insert({
+    rowsToInsert.push({
       employee_id: profile.id,
       period_id: periodId,
       leave_type: leaveType,
@@ -153,11 +138,19 @@ export async function syncLeavesFromPeopleForce(
       source: "peopleforce",
       external_id: externalId,
     });
+  }
+
+  // Single batch insert
+  let imported = 0;
+  if (rowsToInsert.length > 0) {
+    const { error, count } = await serviceClient
+      .from("leave_requests")
+      .insert(rowsToInsert);
 
     if (error) {
-      errors.push(`Failed to import leave for ${email}: ${error.code}`);
+      errors.push(`Batch insert failed: ${error.code} - ${error.message}`);
     } else {
-      imported++;
+      imported = count ?? rowsToInsert.length;
     }
   }
 

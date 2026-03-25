@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -11,10 +18,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { getApiError } from "@/lib/utils";
 import { PageSpinner } from "@/components/spinner";
-import { RefreshCw, Users, Heart } from "lucide-react";
+import { RefreshCw, Users, Heart, CalendarOff } from "lucide-react";
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
 
 interface MedicalBalance {
   employee_id: string;
@@ -26,10 +39,17 @@ interface MedicalBalance {
 }
 
 interface SyncResult {
-  synced: number;
+  synced?: number;
   skipped: number;
   errors?: string[];
   imported?: number;
+}
+
+interface Period {
+  id: string;
+  year: number;
+  month: number;
+  status: string;
 }
 
 export default function PeopleForcePage() {
@@ -38,6 +58,13 @@ export default function PeopleForcePage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [loadingMedical, setLoadingMedical] = useState(false);
+
+  // Leave sync state
+  const [periods, setPeriods] = useState<Period[]>([]);
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
+  const [syncingLeaves, setSyncingLeaves] = useState(false);
+  const [leaveSyncResult, setLeaveSyncResult] = useState<SyncResult | null>(null);
+
   const { toast } = useToast();
 
   const loadMedicalBalances = useCallback(async () => {
@@ -56,12 +83,27 @@ export default function PeopleForcePage() {
       toast({ title: "Error", description: "Failed to load medical balances", variant: "destructive" });
     }
     setLoadingMedical(false);
-    setLoading(false);
   }, [toast]);
 
+  const loadPeriods = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/periods");
+      if (res.ok) {
+        const data: Period[] = await res.json();
+        setPeriods(data);
+        // Auto-select the most recent open period
+        const openPeriod = data.find((p) => p.status === "open");
+        if (openPeriod) setSelectedPeriodId(openPeriod.id);
+        else if (data.length > 0) setSelectedPeriodId(data[0].id);
+      }
+    } catch {
+      // periods not critical for initial load
+    }
+  }, []);
+
   useEffect(() => {
-    loadMedicalBalances();
-  }, [loadMedicalBalances]);
+    Promise.all([loadMedicalBalances(), loadPeriods()]).then(() => setLoading(false));
+  }, [loadMedicalBalances, loadPeriods]);
 
   async function handleSyncEmployees() {
     setSyncing(true);
@@ -79,7 +121,6 @@ export default function PeopleForcePage() {
           title: "Sync Complete",
           description: `${result.synced} updated, ${result.skipped} unchanged`,
         });
-        // Refresh medical balances after sync
         loadMedicalBalances();
       } else {
         toast({ title: "Error", description: await getApiError(res), variant: "destructive" });
@@ -90,7 +131,43 @@ export default function PeopleForcePage() {
     setSyncing(false);
   }
 
+  async function handleSyncLeaves() {
+    if (!selectedPeriodId) return;
+    const period = periods.find((p) => p.id === selectedPeriodId);
+    if (!period) return;
+
+    setSyncingLeaves(true);
+    setLeaveSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/peopleforce", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "sync_leaves",
+          period_id: period.id,
+          year: period.year,
+          month: period.month,
+        }),
+      });
+      if (res.ok) {
+        const result: SyncResult = await res.json();
+        setLeaveSyncResult(result);
+        toast({
+          title: "Leave Sync Complete",
+          description: `${result.imported} imported, ${result.skipped} skipped`,
+        });
+      } else {
+        toast({ title: "Error", description: await getApiError(res), variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Leave sync failed", variant: "destructive" });
+    }
+    setSyncingLeaves(false);
+  }
+
   if (loading) return <PageSpinner />;
+
+  const selectedPeriod = periods.find((p) => p.id === selectedPeriodId);
 
   return (
     <div className="space-y-6">
@@ -124,6 +201,71 @@ export default function PeopleForcePage() {
               {syncResult.errors && syncResult.errors.length > 0 && (
                 <div className="text-destructive mt-2">
                   {syncResult.errors.map((e, i) => (
+                    <p key={i}>{e}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Leave Sync */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarOff className="h-5 w-5" />
+              Leave Sync
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  {periods.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {MONTHS[p.month - 1]} {p.year}
+                      {p.status === "open" ? " (Open)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleSyncLeaves}
+                disabled={syncingLeaves || !selectedPeriodId}
+                size="sm"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${syncingLeaves ? "animate-spin" : ""}`} />
+                {syncingLeaves ? "Syncing..." : "Sync Leaves"}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Imports approved leaves (vacation, sick, day off, unpaid) from PeopleForce for the selected period.
+            Duplicates are automatically skipped via external ID tracking.
+          </p>
+          {selectedPeriod && (
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-sm">Selected:</span>
+              <Badge variant="outline">
+                {MONTHS[selectedPeriod.month - 1]} {selectedPeriod.year}
+              </Badge>
+              <Badge variant={selectedPeriod.status === "open" ? "default" : "secondary"}>
+                {selectedPeriod.status}
+              </Badge>
+            </div>
+          )}
+          {leaveSyncResult && (
+            <div className="rounded-md bg-muted p-3 text-sm space-y-1">
+              <p><strong>{leaveSyncResult.imported}</strong> leaves imported</p>
+              <p><strong>{leaveSyncResult.skipped}</strong> skipped (duplicates / unmatched / unsupported types)</p>
+              {leaveSyncResult.errors && leaveSyncResult.errors.length > 0 && (
+                <div className="text-destructive mt-2">
+                  {leaveSyncResult.errors.map((e, i) => (
                     <p key={i}>{e}</p>
                   ))}
                 </div>

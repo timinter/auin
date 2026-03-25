@@ -50,9 +50,11 @@ export async function syncEmployeesFromPeopleForce(
     return { synced: 0, skipped: 0, errors: ["Failed to fetch SAMAP profiles"] };
   }
 
-  let synced = 0;
-  let skipped = 0;
   const errors: string[] = [];
+
+  // Build update payloads without executing queries
+  const pendingUpdates: { id: string; email: string; updates: Record<string, unknown> }[] = [];
+  let skipped = 0;
 
   for (const profile of profiles) {
     const pfData = pfByEmail.get(profile.email.toLowerCase());
@@ -63,48 +65,46 @@ export async function syncEmployeesFromPeopleForce(
 
     const updates: Record<string, unknown> = {};
 
-    // Store PeopleForce ID
     if (pfData.id && pfData.id !== profile.peopleforce_id) {
       updates.peopleforce_id = pfData.id;
     }
-
-    // Sync department
     if (pfData.department?.name && pfData.department.name !== profile.department) {
       updates.department = pfData.department.name;
     }
-
-    // Sync status
     const mappedStatus = mapStatus(pfData.status);
     if (mappedStatus && mappedStatus !== profile.status) {
       updates.status = mappedStatus;
     }
-
-    // Sync entity from location
     const mappedEntity = mapLocationToEntity(pfData.location?.name);
     if (mappedEntity && mappedEntity !== profile.entity) {
       updates.entity = mappedEntity;
     }
-
-    // Sync hire date → contract_start_date (only if not already set)
     if (pfData.hired_on && !profile.contract_start_date) {
       updates.contract_start_date = pfData.hired_on;
     }
 
     if (Object.keys(updates).length > 0) {
-      const { error } = await serviceClient
-        .from("profiles")
-        .update(updates)
-        .eq("id", profile.id);
-
-      if (error) {
-        errors.push(`Failed to update ${profile.email}: ${error.code}`);
-      } else {
-        synced++;
-      }
+      pendingUpdates.push({ id: profile.id, email: profile.email, updates });
     } else {
       skipped++;
     }
   }
+
+  // Execute all updates in parallel
+  const results = await Promise.all(
+    pendingUpdates.map(({ id, email, updates }) =>
+      serviceClient
+        .from("profiles")
+        .update(updates)
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) errors.push(`Failed to update ${email}: ${error.code} - ${error.message}`);
+          return !error;
+        })
+    )
+  );
+
+  const synced = results.filter(Boolean).length;
 
   return { synced, skipped, errors };
 }

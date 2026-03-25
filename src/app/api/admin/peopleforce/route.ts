@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       userId: user.id,
       action: "peopleforce.sync",
       entityType: "system",
-      entityId: "peopleforce",
+      entityId: user.id,
       newValues: { synced: result.synced, skipped: result.skipped },
     });
 
