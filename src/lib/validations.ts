@@ -204,7 +204,7 @@ export const bankDetailsSchema = z.object({
 
 export const createLeaveSchema = z.object({
   period_id: z.string().uuid(),
-  leave_type: z.enum(["unpaid", "sick", "vacation"]),
+  leave_type: z.enum(["unpaid", "sick", "vacation", "day_off"]),
   start_date: dateString,
   end_date: dateString,
   days_count: z.number().int().min(1).max(31),
