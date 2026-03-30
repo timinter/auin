@@ -62,6 +62,14 @@ export default function DashboardPage() {
     }
   }, [entity]);
 
+  const handlePeriodChange = (periodId: string) => {
+    setStats(null);
+    setTrends([]);
+    setEntityLoading(true);
+    setTrendsLoading(true);
+    setSelectedPeriodId(periodId);
+  };
+
   useEffect(() => {
     if (!profile) return;
 
@@ -274,7 +282,7 @@ export default function DashboardPage() {
           )}
         </div>
         {profile.role === "admin" && periods.length > 0 && (
-          <Select value={selectedPeriodId || ""} onValueChange={setSelectedPeriodId}>
+          <Select value={selectedPeriodId || ""} onValueChange={handlePeriodChange}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Select period" />
             </SelectTrigger>
