@@ -32,13 +32,13 @@ export async function GET() {
         const medical = balances.find((b) => b.leave_type.id === MEDICAL_INSURANCE_TYPE_ID);
         if (!medical) return null;
 
-        // PF stores balance as negative "hours" (actually dollars)
+        // PF balance = remaining amount (positive = unused dollars)
         // Policy name contains the annual limit, e.g. "Медицинская страховка 450$ / год"
         const policyName = medical.leave_type_policy?.name || "";
         const limitMatch = policyName.match(/(\d+)\$/);
         const annualLimit = limitMatch ? parseInt(limitMatch[1]) : 450;
-        const used = Math.abs(medical.balance);
-        const remaining = Math.max(0, annualLimit - used);
+        const remaining = Math.max(0, medical.balance);
+        const used = Math.max(0, annualLimit - remaining);
 
         return {
           employee_id: profile.id,
