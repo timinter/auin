@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { updateProfileSchema, uuidParam } from "@/lib/validations";
+import { getTaxRateForCountry } from "@/lib/tax-rates";
 import { formatZodErrors } from "@/lib/utils";
 import { NextResponse } from "next/server";
 
@@ -23,9 +24,18 @@ export async function PATCH(
       return NextResponse.json({ error: message, fieldErrors }, { status: 400 });
     }
 
+    // Auto-set tax_rate when bank_country changes
+    const updateData: Record<string, unknown> = { ...parsed.data };
+    if (parsed.data.bank_country) {
+      const taxRate = getTaxRateForCountry(parsed.data.bank_country);
+      if (taxRate !== undefined) {
+        updateData.tax_rate = taxRate;
+      }
+    }
+
     const { data, error } = await serviceClient
       .from("profiles")
-      .update(parsed.data)
+      .update(updateData)
       .eq("id", params.id)
       .select()
       .single();

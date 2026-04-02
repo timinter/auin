@@ -174,6 +174,7 @@ export const updateProfileSchema = z.object({
   signatory_name: safeName(100).transform((v) => v || null).optional(),
   signatory_position: safeText(100).transform((v) => v || null).optional(),
   is_vat_payer: z.boolean().optional(),
+  bank_country: z.enum(["BY", "US", "AE", "GE"]).optional().nullable().transform((v) => v || null),
 });
 
 export const bankDetailsSchema = z.object({

@@ -8,10 +8,11 @@ import { z } from "zod";
 const addCompensationSchema = z.object({
   employee_id: z.string().uuid(),
   period_id: z.string().uuid(),
-  category_id: z.string().uuid(),
+  category_id: z.string().uuid().optional(),
   submitted_amount: z.number().positive().max(99_999),
   submitted_currency: z.string().default("USD"),
   approved_amount: z.number().min(0).max(99_999).optional(),
+  note: z.string().max(500).optional(),
 });
 
 const VALID_ENTITIES = ["BY", "US", "CRYPTO"] as const;
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: message, fieldErrors }, { status: 400 });
     }
 
-    const { employee_id, period_id, category_id, submitted_amount, submitted_currency, approved_amount } = parsed.data;
+    const { employee_id, period_id, category_id, submitted_amount, submitted_currency, approved_amount, note } = parsed.data;
 
     // Verify period exists
     const { data: period } = await serviceClient
@@ -93,14 +94,18 @@ export async function POST(request: Request) {
       .single();
     if (!employee) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
 
-    // Verify category exists and is active
-    const { data: category } = await serviceClient
-      .from("compensation_categories")
-      .select("*")
-      .eq("id", category_id)
-      .single();
-    if (!category || !category.is_active) {
-      return NextResponse.json({ error: "Invalid compensation category" }, { status: 400 });
+    // Verify category if provided
+    let categoryLabel = "Custom";
+    if (category_id) {
+      const { data: category } = await serviceClient
+        .from("compensation_categories")
+        .select("*")
+        .eq("id", category_id)
+        .single();
+      if (!category || !category.is_active) {
+        return NextResponse.json({ error: "Invalid compensation category" }, { status: 400 });
+      }
+      categoryLabel = category.label;
     }
 
     const { data, error } = await serviceClient
@@ -108,13 +113,14 @@ export async function POST(request: Request) {
       .insert({
         employee_id,
         period_id,
-        category_id,
+        category_id: category_id || null,
         submitted_amount,
         submitted_currency,
         receipt_url: null,
         status: approved_amount != null ? "approved" : "pending",
         approved_amount: approved_amount ?? null,
         approved_at: approved_amount != null ? new Date().toISOString() : null,
+        note: note || null,
       })
       .select("*, category:compensation_categories(*)")
       .single();
@@ -126,7 +132,7 @@ export async function POST(request: Request) {
       action: "compensation.admin_add",
       entityType: "employee_compensation",
       entityId: data.id,
-      newValues: { employee_id, category: category.label, amount: submitted_amount, approved_amount },
+      newValues: { employee_id, category: categoryLabel, amount: submitted_amount, approved_amount, note },
     });
 
     return NextResponse.json(data);

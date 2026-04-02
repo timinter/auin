@@ -61,6 +61,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
     personal_email: "",
     service_description: "",
     contract_date: "",
+    bank_country: "",
   });
 
   const loadData = useCallback(async () => {
@@ -90,6 +91,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
         personal_email: p.personal_email || "",
         service_description: p.service_description || "",
         contract_date: p.contract_date || "",
+        bank_country: p.bank_country || "",
       });
 
       if (p.role === "employee") {
@@ -310,6 +312,18 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                 </SelectContent>
               </Select>
               {profileErrors.entity && <p className="text-xs text-destructive mt-1">{profileErrors.entity}</p>}
+            </div>
+            <div>
+              <Label>Bank Country</Label>
+              <Select value={form.bank_country} onValueChange={(v) => setForm({ ...form, bank_country: v })}>
+                <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BY">Belarus (AMC) — 14%</SelectItem>
+                  <SelectItem value="US">United States (Zepter) — 11.5%</SelectItem>
+                  <SelectItem value="AE">UAE — 0%</SelectItem>
+                  <SelectItem value="GE">Georgia — 1%</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Status</Label>

@@ -1,11 +1,49 @@
 import { requireRole } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { calculateWorkingDays } from "@/lib/working-days";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const holidaySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   name: z.string().min(1).max(200),
 });
+
+/**
+ * Recalculate working_days for any period whose month contains
+ * the given holiday date, then update the DB.
+ */
+async function recalcPeriodWorkingDays(serviceClient: SupabaseClient, holidayDate: string) {
+  const [yearStr, monthStr] = holidayDate.split("-");
+  const year = parseInt(yearStr);
+  const month = parseInt(monthStr);
+
+  // Find periods matching this year/month
+  const { data: periods } = await serviceClient
+    .from("payroll_periods")
+    .select("id, year, month")
+    .eq("year", year)
+    .eq("month", month);
+
+  if (!periods || periods.length === 0) return;
+
+  // Fetch ALL holidays for this month (after the insert/delete has happened)
+  const { data: holidays } = await serviceClient
+    .from("corporate_holidays")
+    .select("date")
+    .gte("date", `${year}-${String(month).padStart(2, "0")}-01`)
+    .lte("date", `${year}-${String(month).padStart(2, "0")}-31`);
+
+  const holidayDates = (holidays || []).map((h: { date: string }) => h.date);
+  const newWorkingDays = calculateWorkingDays(year, month, holidayDates);
+
+  for (const period of periods) {
+    await serviceClient
+      .from("payroll_periods")
+      .update({ working_days: newWorkingDays })
+      .eq("id", period.id);
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -62,6 +100,10 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ error: "Failed to create holiday" }, { status: 400 });
     }
+
+    // Recalculate working_days for any period in the same month
+    await recalcPeriodWorkingDays(serviceClient, parsed.data.date);
+
     return NextResponse.json(data);
   } catch (err) {
     console.error(err);
