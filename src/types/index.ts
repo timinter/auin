@@ -38,6 +38,7 @@ export interface Profile {
   signatory_position: string | null;
   is_vat_payer: boolean;
   peopleforce_id: number | null;
+  bank_country: string | null;
   created_at: string;
   updated_at: string;
 }

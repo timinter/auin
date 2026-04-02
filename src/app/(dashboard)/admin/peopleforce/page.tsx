@@ -306,8 +306,8 @@ export default function PeopleForcePage() {
                   <TableHead>Employee</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead className="text-right">Annual Limit</TableHead>
-                  <TableHead className="text-right">Used</TableHead>
                   <TableHead className="text-right">Remaining</TableHead>
+                  <TableHead className="text-right">Used</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -316,12 +316,12 @@ export default function PeopleForcePage() {
                     <TableCell className="font-medium">{b.name}</TableCell>
                     <TableCell className="text-muted-foreground">{b.email}</TableCell>
                     <TableCell className="text-right">${b.annual_limit}</TableCell>
-                    <TableCell className="text-right">${b.used}</TableCell>
                     <TableCell className="text-right font-medium">
                       <span className={b.remaining < 50 ? "text-destructive" : ""}>
                         ${b.remaining}
                       </span>
                     </TableCell>
+                    <TableCell className="text-right">${b.used}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
