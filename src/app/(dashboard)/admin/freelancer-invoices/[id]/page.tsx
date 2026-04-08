@@ -203,13 +203,13 @@ export default function FreelancerInvoiceDetailPage({ params }: { params: { id: 
         }
         setPreviewOpen(open);
       }}>
-        <DialogContent className="max-w-4xl h-[80vh]">
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Invoice Preview</DialogTitle>
           </DialogHeader>
           {previewLoading ? (
             <div className="flex items-center justify-center flex-1">
-              <Spinner />
+              <Spinner className="h-8 w-8 text-foreground" />
             </div>
           ) : previewUrl ? (
             <iframe src={previewUrl} className="w-full flex-1 rounded border" />

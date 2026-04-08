@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { X, Lock, LockOpen, Download, Pencil, Send, CheckCircle, XCircle, Plus, Split } from "lucide-react";
+import { X, Lock, LockOpen, Download, Pencil, Send, CheckCircle, XCircle, Plus, Split, Eye, FileDown } from "lucide-react";
 import { PageSpinner, Spinner } from "@/components/spinner";
 import { formatPeriod, formatCurrency, formatDisplayDate, getApiError } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,6 +81,10 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
   const [splitRows, setSplitRows] = useState<{ bank_account_id: string; amount: string }[]>([]);
   const [splitSaving, setSplitSaving] = useState(false);
   const [splitHasExisting, setSplitHasExisting] = useState<Set<string>>(new Set());
+  const [invoicePreviewOpen, setInvoicePreviewOpen] = useState(false);
+  const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
+  const [invoicePreviewLoading, setInvoicePreviewLoading] = useState(false);
+  const [freelancerDownloading, setFreelancerDownloading] = useState<string | null>(null);
   const { toast } = useToast();
 
   async function openSplitDialog(record: PayrollRecord) {
@@ -524,7 +528,8 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
   // Freelancers: actionable = pending_approval
   const actionableInvoices = filteredFreelancer.filter((inv) => inv.status === "pending_approval");
   const selectedActionable = actionableInvoices.filter((inv) => selectedFreelancerIds.has(inv.id));
-  const allActionableSelected = actionableInvoices.length > 0 && actionableInvoices.every((inv) => selectedFreelancerIds.has(inv.id));
+  const selectableFreelancerInvoices = filteredFreelancer.filter((inv) => inv.status === "pending_approval" || inv.status === "approved");
+  const allSelectableSelected = selectableFreelancerInvoices.length > 0 && selectableFreelancerInvoices.every((inv) => selectedFreelancerIds.has(inv.id));
 
   function toggleFreelancerSelect(id: string) {
     setSelectedFreelancerIds((prev) => {
@@ -535,10 +540,10 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
   }
 
   function toggleFreelancerSelectAll() {
-    if (allActionableSelected) {
+    if (allSelectableSelected) {
       setSelectedFreelancerIds(new Set());
     } else {
-      setSelectedFreelancerIds(new Set(actionableInvoices.map((inv) => inv.id)));
+      setSelectedFreelancerIds(new Set(selectableFreelancerInvoices.map((inv) => inv.id)));
     }
   }
 
@@ -599,6 +604,87 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
       toast({ title: "Error", description: "Batch action failed", variant: "destructive" });
     } finally {
       setBatchActioning(false);
+    }
+  }
+
+  const approvedFreelancerInvoices = filteredFreelancer.filter((inv) => inv.status === "approved");
+  const selectedApprovedFreelancer = approvedFreelancerInvoices.filter((inv) => selectedFreelancerIds.has(inv.id));
+
+  async function handleFreelancerPreview(invoiceId: string) {
+    setInvoicePreviewLoading(true);
+    setInvoicePreviewOpen(true);
+    try {
+      const res = await fetch(`/api/admin/invoices/${invoiceId}/pdf`);
+      if (!res.ok) {
+        toast({ title: "Error", description: "Failed to generate preview", variant: "destructive" });
+        setInvoicePreviewOpen(false);
+        return;
+      }
+      const blob = await res.blob();
+      setInvoicePreviewUrl(URL.createObjectURL(blob));
+    } catch {
+      toast({ title: "Error", description: "Failed to load preview", variant: "destructive" });
+      setInvoicePreviewOpen(false);
+    } finally {
+      setInvoicePreviewLoading(false);
+    }
+  }
+
+  async function handleFreelancerDownload(invoiceId: string, lastName: string) {
+    setFreelancerDownloading(invoiceId);
+    try {
+      const res = await fetch(`/api/admin/invoices/${invoiceId}/pdf`);
+      if (!res.ok) {
+        toast({ title: "Error", description: "Failed to generate PDF", variant: "destructive" });
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice-${lastName || "freelancer"}-${invoiceId.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Error", description: "Download failed", variant: "destructive" });
+    } finally {
+      setFreelancerDownloading(null);
+    }
+  }
+
+  async function handleBatchFreelancerDownload() {
+    if (selectedApprovedFreelancer.length === 0) return;
+    if (selectedApprovedFreelancer.length === 1) {
+      const inv = selectedApprovedFreelancer[0];
+      return handleFreelancerDownload(inv.id, inv.freelancer?.last_name || "freelancer");
+    }
+    setFreelancerDownloading("batch");
+    try {
+      // Download each PDF and zip them
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      for (const inv of selectedApprovedFreelancer) {
+        const res = await fetch(`/api/admin/invoices/${inv.id}/pdf`);
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        const filename = `invoice_${inv.freelancer?.last_name || "freelancer"}_${inv.id.slice(0, 8)}.pdf`;
+        zip.file(filename, blob);
+      }
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `freelancer_invoices_${period ? `${period.year}_${period.month}` : ""}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Error", description: "Batch download failed", variant: "destructive" });
+    } finally {
+      setFreelancerDownloading(null);
     }
   }
 
@@ -861,32 +947,42 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex gap-2 items-center">
-                  {selectedActionable.length > 0 && (
+                  {selectedFreelancerIds.size > 0 && (
                     <>
-                      <Button size="sm" onClick={() => handleBatchFreelancerAction("approve")} disabled={batchActioning}>
-                        <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                        {batchActioning ? "Processing..." : `Approve ${selectedActionable.length}`}
-                      </Button>
-                      {!rejectDialogOpen ? (
-                        <Button size="sm" variant="destructive" onClick={() => setRejectDialogOpen(true)} disabled={batchActioning}>
-                          <XCircle className="h-3.5 w-3.5 mr-1" />
-                          Reject {selectedActionable.length}
+                      {selectedActionable.length > 0 && (
+                        <>
+                          <Button size="sm" onClick={() => handleBatchFreelancerAction("approve")} disabled={batchActioning}>
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                            {batchActioning ? "Processing..." : `Approve ${selectedActionable.length}`}
+                          </Button>
+                          {!rejectDialogOpen ? (
+                            <Button size="sm" variant="destructive" onClick={() => setRejectDialogOpen(true)} disabled={batchActioning}>
+                              <XCircle className="h-3.5 w-3.5 mr-1" />
+                              Reject {selectedActionable.length}
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Textarea
+                                placeholder="Rejection reason..."
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                className="h-9 min-h-[36px] w-64 text-sm"
+                              />
+                              <Button size="sm" variant="destructive" onClick={() => handleBatchFreelancerAction("reject")} disabled={batchActioning || !rejectReason.trim()}>
+                                {batchActioning ? "Rejecting..." : "Confirm Reject"}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => { setRejectDialogOpen(false); setRejectReason(""); }}>
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {selectedApprovedFreelancer.length > 0 && (
+                        <Button variant="outline" size="sm" onClick={handleBatchFreelancerDownload} disabled={freelancerDownloading === "batch"}>
+                          <Download className="h-3.5 w-3.5 mr-1" />
+                          {freelancerDownloading === "batch" ? "Downloading..." : `Download ${selectedApprovedFreelancer.length} PDFs`}
                         </Button>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Textarea
-                            placeholder="Rejection reason..."
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                            className="h-9 min-h-[36px] w-64 text-sm"
-                          />
-                          <Button size="sm" variant="destructive" onClick={() => handleBatchFreelancerAction("reject")} disabled={batchActioning || !rejectReason.trim()}>
-                            {batchActioning ? "Rejecting..." : "Confirm Reject"}
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => { setRejectDialogOpen(false); setRejectReason(""); }}>
-                            Cancel
-                          </Button>
-                        </div>
                       )}
                       <Button variant="ghost" size="sm" onClick={() => setSelectedFreelancerIds(new Set())}>
                         Clear selection
@@ -912,21 +1008,22 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
                   <TableRow>
                     <TableHead className="w-10">
                       <Checkbox
-                        checked={allActionableSelected}
+                        checked={allSelectableSelected}
                         onCheckedChange={toggleFreelancerSelectAll}
-                        disabled={actionableInvoices.length === 0}
+                        disabled={selectableFreelancerInvoices.length === 0}
                       />
                     </TableHead>
                     <TableHead>Freelancer</TableHead>
                     <TableHead>Payment</TableHead>
                     <TableHead>Total</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="w-20">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredFreelancer.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         {statusFilter ? "No invoices match this filter." : "No freelancer invoices for this period."}
                       </TableCell>
                     </TableRow>
@@ -935,7 +1032,7 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
                       {filteredFreelancer.map((inv) => (
                         <TableRow key={inv.id}>
                           <TableCell>
-                            {inv.status === "pending_approval" ? (
+                            {(inv.status === "pending_approval" || inv.status === "approved") ? (
                               <Checkbox
                                 checked={selectedFreelancerIds.has(inv.id)}
                                 onCheckedChange={() => toggleFreelancerSelect(inv.id)}
@@ -950,6 +1047,18 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
                           <TableCell className="text-xs text-muted-foreground">{inv.freelancer?.payment_channel || "—"}</TableCell>
                           <TableCell className="font-semibold">{formatCurrency(inv.total_amount)}</TableCell>
                           <TableCell><Badge variant={statusVariant(inv.status)}>{inv.status.replace("_", " ")}</Badge></TableCell>
+                          <TableCell>
+                            {inv.status === "approved" && (
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleFreelancerPreview(inv.id)} title="Preview">
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleFreelancerDownload(inv.id, inv.freelancer?.last_name || "")} disabled={freelancerDownloading === inv.id} title="Download">
+                                  <FileDown className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="bg-muted/50 font-semibold">
@@ -957,6 +1066,7 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
                         <TableCell>Totals ({filteredFreelancer.length})</TableCell>
                         <TableCell />
                         <TableCell>{formatCurrency(filteredFreelancer.reduce((s, inv) => s + inv.total_amount, 0))}</TableCell>
+                        <TableCell />
                         <TableCell />
                       </TableRow>
                     </>
@@ -1271,6 +1381,27 @@ export default function PeriodDetailPage({ params }: { params: { id: string } })
               )
             ) : null}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={invoicePreviewOpen} onOpenChange={(open) => {
+        if (!open && invoicePreviewUrl) {
+          URL.revokeObjectURL(invoicePreviewUrl);
+          setInvoicePreviewUrl(null);
+        }
+        setInvoicePreviewOpen(open);
+      }}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+          </DialogHeader>
+          {invoicePreviewLoading ? (
+            <div className="flex items-center justify-center flex-1">
+              <Spinner className="h-8 w-8 text-foreground" />
+            </div>
+          ) : invoicePreviewUrl ? (
+            <iframe src={invoicePreviewUrl} className="w-full flex-1 rounded border" />
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
