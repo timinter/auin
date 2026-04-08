@@ -5,13 +5,13 @@ import type { Entity } from "@/types";
 interface PayrollWithEmployee {
   period_id: string;
   total_amount: number;
-  employee: { entity: Entity }[];
+  employee: { entity: Entity } | null;
 }
 
 interface InvoiceWithFreelancer {
   period_id: string;
   total_amount: number;
-  freelancer: { entity: Entity }[];
+  freelancer: { entity: Entity } | null;
 }
 
 /**
@@ -62,13 +62,13 @@ export async function GET(request: Request) {
         .in("period_id", periodIds),
     ]);
 
-    let payrollRecords = (payrollResult.data || []) as PayrollWithEmployee[];
-    let invoices = (invoiceResult.data || []) as InvoiceWithFreelancer[];
+    let payrollRecords = (payrollResult.data || []) as unknown as PayrollWithEmployee[];
+    let invoices = (invoiceResult.data || []) as unknown as InvoiceWithFreelancer[];
 
     // Filter by entity if provided
     if (entity) {
-      payrollRecords = payrollRecords.filter((r) => r.employee?.[0]?.entity === entity);
-      invoices = invoices.filter((r) => r.freelancer?.[0]?.entity === entity);
+      payrollRecords = payrollRecords.filter((r) => r.employee?.entity === entity);
+      invoices = invoices.filter((r) => r.freelancer?.entity === entity);
     }
 
     // Aggregate by period

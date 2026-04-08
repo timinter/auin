@@ -6,12 +6,13 @@ import type { FreelancerInvoice, FreelancerInvoiceLine } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency, formatPeriod } from "@/lib/utils";
-import { PageSpinner } from "@/components/spinner";
-import { FileDown } from "lucide-react";
+import { PageSpinner, Spinner } from "@/components/spinner";
+import { FileDown, Eye } from "lucide-react";
 
 export default function FreelancerInvoiceDetailPage({ params }: { params: { id: string } }) {
   const [invoice, setInvoice] = useState<FreelancerInvoice | null>(null);
@@ -19,6 +20,9 @@ export default function FreelancerInvoiceDetailPage({ params }: { params: { id: 
   const [loading, setLoading] = useState(true);
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -58,6 +62,27 @@ export default function FreelancerInvoiceDetailPage({ params }: { params: { id: 
       toast({ title: "Invoice rejected" });
       setRejecting(false);
       loadData();
+    }
+  }
+
+  async function handlePreview() {
+    setPreviewLoading(true);
+    setPreviewOpen(true);
+    try {
+      const res = await fetch(`/api/admin/invoices/${params.id}/pdf`);
+      if (!res.ok) {
+        toast({ title: "Error", description: "Failed to generate preview", variant: "destructive" });
+        setPreviewOpen(false);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+    } catch {
+      toast({ title: "Error", description: "Failed to load preview", variant: "destructive" });
+      setPreviewOpen(false);
+    } finally {
+      setPreviewLoading(false);
     }
   }
 
@@ -146,10 +171,51 @@ export default function FreelancerInvoiceDetailPage({ params }: { params: { id: 
       )}
 
       {invoice.status === "approved" && (
-        <Button variant="outline" onClick={() => window.open(`/api/admin/invoices/${params.id}/pdf`, "_blank")}>
-          Download Invoice PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handlePreview}>
+            <Eye className="h-4 w-4 mr-2" /> Preview PDF
+          </Button>
+          <Button variant="outline" onClick={async () => {
+            const res = await fetch(`/api/admin/invoices/${params.id}/pdf`);
+            if (!res.ok) {
+              toast({ title: "Error", description: "Failed to generate PDF", variant: "destructive" });
+              return;
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `invoice-${invoice.freelancer?.last_name || "freelancer"}-${params.id.slice(0, 8)}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          }}>
+            <FileDown className="h-4 w-4 mr-2" /> Download Invoice PDF
+          </Button>
+        </div>
       )}
+
+      <Dialog open={previewOpen} onOpenChange={(open) => {
+        if (!open && previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          setPreviewUrl(null);
+        }
+        setPreviewOpen(open);
+      }}>
+        <DialogContent className="max-w-4xl h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+          </DialogHeader>
+          {previewLoading ? (
+            <div className="flex items-center justify-center flex-1">
+              <Spinner />
+            </div>
+          ) : previewUrl ? (
+            <iframe src={previewUrl} className="w-full flex-1 rounded border" />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {rejecting && (
         <Card>
