@@ -4,11 +4,15 @@ import {
   createPeriodSchema,
   updatePayrollSchema,
   createContractSchema,
+  updateContractSchema,
   submitInvoiceSchema,
   bankDetailsSchema,
+  bankAccountSchema,
+  payrollSplitSchema,
   uuidParam,
   updateProfileSchema,
   rejectPayrollSchema,
+  rejectInvoiceSchema,
   createLeaveSchema,
   reviewLeaveSchema,
 } from "../validations";
@@ -357,6 +361,25 @@ describe("updateProfileSchema", () => {
       expect(result.data.company_name).toBeNull();
     }
   });
+
+  it("accepts valid bank_country", () => {
+    expect(updateProfileSchema.safeParse({ bank_country: "BY" }).success).toBe(true);
+    expect(updateProfileSchema.safeParse({ bank_country: "US" }).success).toBe(true);
+    expect(updateProfileSchema.safeParse({ bank_country: "AE" }).success).toBe(true);
+    expect(updateProfileSchema.safeParse({ bank_country: "GE" }).success).toBe(true);
+  });
+
+  it("rejects invalid bank_country", () => {
+    expect(updateProfileSchema.safeParse({ bank_country: "DE" }).success).toBe(false);
+  });
+
+  it("nullifies empty bank_country", () => {
+    const result = updateProfileSchema.safeParse({ bank_country: null });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.bank_country).toBeNull();
+    }
+  });
 });
 
 describe("rejectPayrollSchema", () => {
@@ -484,6 +507,174 @@ describe("reviewLeaveSchema", () => {
 
   it("rejects invalid status", () => {
     const result = reviewLeaveSchema.safeParse({ status: "pending" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("updateContractSchema", () => {
+  it("accepts partial update with gross_salary only", () => {
+    const result = updateContractSchema.safeParse({ gross_salary: 6000 });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts partial update with effective_from only", () => {
+    const result = updateContractSchema.safeParse({ effective_from: "2026-04-01" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts nullable effective_to", () => {
+    const result = updateContractSchema.safeParse({ effective_to: null });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts effective_to date", () => {
+    const result = updateContractSchema.safeParse({ effective_to: "2026-06-30" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts contract_type change", () => {
+    const result = updateContractSchema.safeParse({ contract_type: "amendment" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects zero gross_salary", () => {
+    const result = updateContractSchema.safeParse({ gross_salary: 0 });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects negative gross_salary", () => {
+    const result = updateContractSchema.safeParse({ gross_salary: -100 });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid date format", () => {
+    const result = updateContractSchema.safeParse({ effective_from: "04/01/2026" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid contract_type", () => {
+    const result = updateContractSchema.safeParse({ contract_type: "full_time" });
+    expect(result.success).toBe(false);
+  });
+
+  it("sanitizes notes", () => {
+    const result = updateContractSchema.safeParse({ notes: '<script>alert("xss")</script>Raise' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.notes).not.toContain("<script>");
+    }
+  });
+
+  it("accepts empty object (no fields required)", () => {
+    const result = updateContractSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("rejectInvoiceSchema", () => {
+  it("accepts valid rejection reason", () => {
+    const result = rejectInvoiceSchema.safeParse({ rejection_reason: "Wrong hours reported" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty reason", () => {
+    const result = rejectInvoiceSchema.safeParse({ rejection_reason: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("sanitizes HTML in reason", () => {
+    const result = rejectInvoiceSchema.safeParse({ rejection_reason: '<img onerror="alert(1)">Bad data' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.rejection_reason).not.toContain("onerror");
+    }
+  });
+});
+
+describe("bankAccountSchema", () => {
+  it("accepts valid bank account", () => {
+    const result = bankAccountSchema.safeParse({
+      label: "Main USD",
+      bank_name: "Chase",
+      iban: "US12345678901234567890",
+      swift: "CHASUS33",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("requires label", () => {
+    const result = bankAccountSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects empty label", () => {
+    const result = bankAccountSchema.safeParse({ label: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("defaults is_primary to false", () => {
+    const result = bankAccountSchema.safeParse({ label: "Secondary" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.is_primary).toBe(false);
+    }
+  });
+
+  it("validates SWIFT format", () => {
+    expect(bankAccountSchema.safeParse({ label: "X", swift: "DEUT" }).success).toBe(false);
+    expect(bankAccountSchema.safeParse({ label: "X", swift: "DEUTDEFF" }).success).toBe(true);
+    expect(bankAccountSchema.safeParse({ label: "X", swift: "DEUTDEFFXXX" }).success).toBe(true);
+  });
+
+  it("validates routing number (9 digits)", () => {
+    expect(bankAccountSchema.safeParse({ label: "X", routing_number: "12345" }).success).toBe(false);
+    expect(bankAccountSchema.safeParse({ label: "X", routing_number: "021000021" }).success).toBe(true);
+  });
+});
+
+describe("payrollSplitSchema", () => {
+  it("accepts valid splits", () => {
+    const result = payrollSplitSchema.safeParse({
+      splits: [
+        { bank_account_id: "550e8400-e29b-41d4-a716-446655440000", amount: 3000 },
+        { bank_account_id: "660e8400-e29b-41d4-a716-446655440000", amount: 2000 },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("requires at least one split", () => {
+    const result = payrollSplitSchema.safeParse({ splits: [] });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects zero amount", () => {
+    const result = payrollSplitSchema.safeParse({
+      splits: [{ bank_account_id: "550e8400-e29b-41d4-a716-446655440000", amount: 0 }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects negative amount", () => {
+    const result = payrollSplitSchema.safeParse({
+      splits: [{ bank_account_id: "550e8400-e29b-41d4-a716-446655440000", amount: -500 }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid bank_account_id", () => {
+    const result = payrollSplitSchema.safeParse({
+      splits: [{ bank_account_id: "not-a-uuid", amount: 1000 }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects more than 10 splits", () => {
+    const splits = Array.from({ length: 11 }, (_, i) => ({
+      bank_account_id: `550e8400-e29b-41d4-a716-44665544000${i}`,
+      amount: 100,
+    }));
+    const result = payrollSplitSchema.safeParse({ splits });
     expect(result.success).toBe(false);
   });
 });

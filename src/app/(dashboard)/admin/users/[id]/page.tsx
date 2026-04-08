@@ -34,6 +34,8 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
   const [contractDialogOpen, setContractDialogOpen] = useState(false);
   const [terminateDialogOpen, setTerminateDialogOpen] = useState<string | null>(null);
   const [terminateForm, setTerminateForm] = useState({ terminated_at: "", notes: "" });
+  const [editContractId, setEditContractId] = useState<string | null>(null);
+  const [editContractForm, setEditContractForm] = useState({ gross_salary: "", effective_from: "", effective_to: "", notes: "" });
   const [rateDialogOpen, setRateDialogOpen] = useState(false);
   const [newContract, setNewContract] = useState({ gross_salary: "", effective_from: "", contract_type: "primary", notes: "" });
   const [newRate, setNewRate] = useState({ project_id: "", hourly_rate: "", effective_from: "" });
@@ -173,6 +175,30 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
       toast({ title: "Contract terminated" });
       setTerminateDialogOpen(null);
       setTerminateForm({ terminated_at: "", notes: "" });
+      loadData();
+    } else {
+      const data = await res.json();
+      toast({ title: "Error", description: data.error, variant: "destructive" });
+    }
+  }
+
+  async function handleEditContract() {
+    if (!editContractId) return;
+    const update: Record<string, unknown> = {};
+    if (editContractForm.gross_salary) update.gross_salary = parseFloat(editContractForm.gross_salary);
+    if (editContractForm.effective_from) update.effective_from = editContractForm.effective_from;
+    if (editContractForm.effective_to) update.effective_to = editContractForm.effective_to;
+    else update.effective_to = null;
+    if (editContractForm.notes) update.notes = editContractForm.notes;
+
+    const res = await fetch(`/api/admin/contracts/${editContractId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(update),
+    });
+    if (res.ok) {
+      toast({ title: "Contract updated" });
+      setEditContractId(null);
       loadData();
     } else {
       const data = await res.json();
@@ -435,7 +461,24 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                           <Badge variant="outline">Ended</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-2">
+                        {!isTerminated && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditContractId(c.id);
+                              setEditContractForm({
+                                gross_salary: String(c.gross_salary),
+                                effective_from: c.effective_from,
+                                effective_to: c.effective_to || "",
+                                notes: c.notes || "",
+                              });
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        )}
                         {isActive && (
                           <Button
                             size="sm"
@@ -490,6 +533,33 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
               <DialogFooter>
                 <Button variant="outline" onClick={() => setTerminateDialogOpen(null)}>Cancel</Button>
                 <Button variant="destructive" onClick={handleTerminateContract}>Terminate</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={!!editContractId} onOpenChange={(open) => { if (!open) setEditContractId(null); }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Contract</DialogTitle>
+                <DialogDescription>Modify contract details.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <FormField label="Gross Salary (USD)">
+                  <Input type="number" min={0} value={editContractForm.gross_salary} onChange={(e) => setEditContractForm({ ...editContractForm, gross_salary: e.target.value })} />
+                </FormField>
+                <FormField label="Effective From">
+                  <Input type="date" value={editContractForm.effective_from} onChange={(e) => setEditContractForm({ ...editContractForm, effective_from: e.target.value })} />
+                </FormField>
+                <FormField label="Effective To (leave empty for ongoing)">
+                  <Input type="date" value={editContractForm.effective_to} onChange={(e) => setEditContractForm({ ...editContractForm, effective_to: e.target.value })} />
+                </FormField>
+                <FormField label="Notes (optional)">
+                  <Textarea value={editContractForm.notes} onChange={(e) => setEditContractForm({ ...editContractForm, notes: e.target.value })} placeholder="Notes..." rows={2} />
+                </FormField>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditContractId(null)}>Cancel</Button>
+                <Button onClick={handleEditContract}>Save Changes</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

@@ -103,8 +103,11 @@ export const createContractSchema = z.object({
 });
 
 export const updateContractSchema = z.object({
-  notes: safeText(1000).optional().nullable(),
+  gross_salary: moneyPositive(999_999.99).optional(),
+  effective_from: dateString.optional(),
   effective_to: dateString.nullable().optional(),
+  contract_type: z.enum(["primary", "amendment", "bonus", "part_time"]).optional(),
+  notes: safeText(1000).optional().nullable(),
 });
 
 export const terminateContractSchema = z.object({

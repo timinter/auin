@@ -38,6 +38,8 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
     bonus: 0,
     bonus_note: "",
     compensation_amount: 0,
+    adjustment_amount: 0,
+    adjustment_reason: "",
   });
 
   const loadData = useCallback(async () => {
@@ -56,6 +58,8 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
         bonus: r.bonus,
         bonus_note: r.bonus_note || "",
         compensation_amount: r.compensation_amount,
+        adjustment_amount: r.adjustment_amount || 0,
+        adjustment_reason: r.adjustment_reason || "",
       });
 
       const { data: c } = await supabase
@@ -83,8 +87,9 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
   const totalAmount = useMemo(() => {
     return proratedGross
       + form.bonus
-      + form.compensation_amount;
-  }, [proratedGross, form]);
+      + form.compensation_amount
+      + form.adjustment_amount;
+  }, [proratedGross, form.bonus, form.compensation_amount, form.adjustment_amount]);
 
   async function handleSave() {
     setSaving(true);
@@ -231,9 +236,28 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
 
           <Separator />
 
-          <div className="p-4 bg-primary/5 rounded-md">
+          <FormField label="Adjustment (positive = add, negative = deduct)" error={fieldErrors.adjustment_amount} onClearError={clearFieldError(setFieldErrors, "adjustment_amount")}>
+            <Input type="number" value={form.adjustment_amount || ""} onFocus={(e) => e.target.select()} onChange={(e) => setField("adjustment_amount", e.target.value)} />
+          </FormField>
+
+          {form.adjustment_amount !== 0 && (
+            <FormField label="Adjustment Reason" error={fieldErrors.adjustment_reason} onClearError={clearFieldError(setFieldErrors, "adjustment_reason")}>
+              <Textarea value={form.adjustment_reason} onChange={(e) => setForm({ ...form, adjustment_reason: e.target.value })} placeholder="Reason for adjustment..." />
+            </FormField>
+          )}
+
+          <Separator />
+
+          <div className="p-4 bg-primary/5 rounded-md space-y-2">
             <p className="text-sm font-medium">Total Amount</p>
             <p className="text-2xl font-bold">{formatCurrency(totalAmount)}</p>
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              <p>Prorated Gross: {formatCurrency(proratedGross)}</p>
+              {form.bonus > 0 && <p>+ Bonus: {formatCurrency(form.bonus)}{form.bonus_note ? ` (${form.bonus_note})` : ""}</p>}
+              {form.compensation_amount > 0 && <p>+ Compensation: {formatCurrency(form.compensation_amount)}</p>}
+              {form.adjustment_amount > 0 && <p>+ Adjustment: {formatCurrency(form.adjustment_amount)}{form.adjustment_reason ? ` (${form.adjustment_reason})` : ""}</p>}
+              {form.adjustment_amount < 0 && <p>- Adjustment: {formatCurrency(Math.abs(form.adjustment_amount))}{form.adjustment_reason ? ` (${form.adjustment_reason})` : ""}</p>}
+            </div>
           </div>
 
           <div className="flex gap-2">

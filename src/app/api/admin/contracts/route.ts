@@ -18,11 +18,16 @@ export async function POST(request: Request) {
 
     const { contract_type } = parsed.data;
 
-    // For primary contracts, close the existing open primary contract
+    // For primary contracts, close the existing open primary contract (end = new start - 1 day)
     if (contract_type === "primary") {
+      const newStart = new Date(parsed.data.effective_from + "T00:00:00");
+      const prevEnd = new Date(newStart);
+      prevEnd.setDate(prevEnd.getDate() - 1);
+      const prevEndStr = prevEnd.toISOString().split("T")[0];
+
       await serviceClient
         .from("employee_contracts")
-        .update({ effective_to: parsed.data.effective_from })
+        .update({ effective_to: prevEndStr })
         .eq("employee_id", parsed.data.employee_id)
         .eq("contract_type", "primary")
         .is("effective_to", null)
